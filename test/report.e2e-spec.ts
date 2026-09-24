@@ -25,7 +25,7 @@ describe('Report (e2e)', () => {
       .useValue(storageServiceMock)
       .overrideProvider(NotificationService)
       .useValue({
-        sendLeakReportCreated: jest.fn().mockResolvedValue(undefined),
+        notifyReportCreated: jest.fn().mockResolvedValue(undefined),
       })
       .compile();
 

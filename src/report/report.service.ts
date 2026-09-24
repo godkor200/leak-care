@@ -3,8 +3,20 @@ import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { NotificationService } from '../notification/notification.service';
-import { CreateReportDto } from './dto/create-report.dto';
+import { LeakLocation, UrgencyLevel } from './dto/leak-report.enums';
 import { ResolvedFileType, resolveFileType } from './file-types';
+
+// 일반 접수와 긴급 출동이 공통으로 저장하는 입력. 긴급 출동은 occurredAt/damageScope가 없다.
+export interface NewLeakReport {
+  name: string;
+  phone: string;
+  address: string;
+  urgency: UrgencyLevel;
+  location?: LeakLocation;
+  occurredAt?: string;
+  damageScope?: string;
+  description?: string;
+}
 
 export interface ReportFiles {
   photos: Express.Multer.File[];
@@ -22,7 +34,7 @@ export class ReportService {
     private readonly notification: NotificationService,
   ) {}
 
-  async create(dto: CreateReportDto, files: ReportFiles) {
+  async create(input: NewLeakReport, files: ReportFiles) {
     // 파일명은 multer가 latin1로 디코딩해 한글이 깨지므로 메시지·키에 쓰지 않는다
     const photoTypes = files.photos.map((photo, index) => {
       const label = `${index + 1}번째 사진`;
@@ -59,23 +71,35 @@ export class ReportService {
 
     const report = await this.prisma.leakReport.create({
       data: {
-        name: dto.name,
-        phone: dto.phone,
-        address: dto.address,
-        location: dto.location,
-        occurredAt: dto.occurredAt,
-        damageScope: dto.damageScope,
-        urgency: dto.urgency,
+        name: input.name,
+        phone: input.phone,
+        address: input.address,
+        location: input.location,
+        occurredAt: input.occurredAt,
+        damageScope: input.damageScope,
+        description: input.description,
+        urgency: input.urgency,
         files: { create: uploaded },
       },
       include: { files: true },
     });
 
-    await this.notification.sendLeakReportCreated({
+    // HEIC 변환과 Slack 사진 업로드는 오래 걸릴 수 있어 고객 응답을 기다리게 하지 않는다.
+    // notifyReportCreated는 내부에서 모든 에러를 잡으므로 reject되지 않는다.
+    void this.notification.notifyReportCreated({
       id: report.id,
       name: report.name,
+      phone: report.phone,
       address: report.address,
       urgency: report.urgency,
+      isEmergency: report.urgency === UrgencyLevel.HIGH,
+      location: report.location,
+      description: report.description,
+      photos: files.photos.map((photo, index) => ({
+        buffer: photo.buffer,
+        ...photoTypes[index],
+      })),
+      hasVideo: Boolean(files.video),
     });
 
     return report;

@@ -29,7 +29,7 @@ describe('ReportService', () => {
       uploadFile: jest.fn().mockResolvedValue('https://example.com/photo1.jpg'),
     } as any;
     const notification = {
-      sendLeakReportCreated: jest.fn().mockResolvedValue(undefined),
+      notifyReportCreated: jest.fn().mockResolvedValue(undefined),
     } as any;
     const service = new ReportService(prisma, storage, notification);
     return { service, prisma, storage, notification };
@@ -42,8 +42,16 @@ describe('ReportService', () => {
 
     expect(storage.uploadFile).toHaveBeenCalledTimes(1);
     expect(prisma.leakReport.create).toHaveBeenCalledTimes(1);
-    expect(notification.sendLeakReportCreated).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 1 }),
+    expect(notification.notifyReportCreated).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 1,
+        isEmergency: false,
+        hasVideo: false,
+        phone: '010-1234-5678',
+        photos: [
+          { buffer: photo.buffer, extension: '.jpg', contentType: 'image/jpeg' },
+        ],
+      }),
     );
     expect(result.id).toBe(1);
   });
@@ -173,5 +181,50 @@ describe('ReportService', () => {
       'upload failed',
     );
     expect(prisma.leakReport.create).not.toHaveBeenCalled();
+  });
+
+  it('does not wait for the Slack notification to finish', async () => {
+    const { service, notification } = createService();
+    notification.notifyReportCreated.mockReturnValue(new Promise(() => {}));
+
+    const result = await service.create(dto, { photos: [photo] });
+
+    expect(result.id).toBe(1);
+    expect(notification.notifyReportCreated).toHaveBeenCalledTimes(1);
+  });
+
+  it('saves an emergency report without general-only fields and flags the notification', async () => {
+    const { service, prisma, notification } = createService();
+    const emergency = {
+      name: '홍길동',
+      phone: '010-1234-5678',
+      address: '서울시 강남구 테스트로 1',
+      urgency: '긴급',
+      description: '천장에서 물이 떨어지고 있어요',
+    } as any;
+    prisma.leakReport.create.mockResolvedValue({
+      id: 7,
+      ...emergency,
+      location: null,
+      occurredAt: null,
+      damageScope: null,
+      files: [],
+    });
+
+    await service.create(emergency, { photos: [photo] });
+
+    const { data } = prisma.leakReport.create.mock.calls[0][0];
+    expect(data).toMatchObject({
+      urgency: '긴급',
+      description: '천장에서 물이 떨어지고 있어요',
+    });
+    expect(data.occurredAt).toBeUndefined();
+    expect(notification.notifyReportCreated).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 7,
+        isEmergency: true,
+        description: '천장에서 물이 떨어지고 있어요',
+      }),
+    );
   });
 });

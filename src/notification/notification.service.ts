@@ -1,14 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-
-export interface LeakReportSummary {
-  id: number;
-  name: string;
-  address: string;
-  urgency: string;
-}
-
-const SLACK_TIMEOUT_MS = 5000;
+import { ImageConverter } from './image-converter';
+import { ReportNotification } from './notification.types';
+import { SlackClient, SlackFile } from './slack.client';
 
 // Slack mrkdwn에서 <!channel>, <링크|텍스트> 같은 제어 문법이 동작하지 않도록 이스케이프
 function escapeSlack(text: string): string {
@@ -18,38 +12,83 @@ function escapeSlack(text: string): string {
     .replace(/>/g, '&gt;');
 }
 
+function line(label: string, value?: string | null): string | null {
+  return value ? `${label}: ${escapeSlack(value)}` : null;
+}
+
+// 긴급은 알림을 보자마자 전화할 수 있게 연락처를 맨 앞에 둔다
+function buildMessage(report: ReportNotification): string {
+  const header = report.isEmergency
+    ? `<!channel> 🚨 긴급 출동 #${report.id}`
+    : `새 누수 접수 #${report.id}`;
+  const lines = report.isEmergency
+    ? [
+        line('연락처', report.phone),
+        line('주소', report.address),
+        line('이름', report.name),
+        line('발생 장소', report.location),
+        line('상황', report.description),
+      ]
+    : [
+        line('긴급도', report.urgency),
+        line('발생 장소', report.location),
+        line('주소', report.address),
+        line('이름', report.name),
+        line('연락처', report.phone),
+      ];
+  if (report.hasVideo) {
+    lines.push('동영상 1개 첨부됨');
+  }
+  return [header, ...lines.filter((value): value is string => value !== null)].join('\n');
+}
+
 @Injectable()
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly slack: SlackClient,
+    private readonly images: ImageConverter,
+  ) {}
 
-  async sendLeakReportCreated(report: LeakReportSummary): Promise<void> {
-    const webhookUrl = this.config.get<string>('SLACK_WEBHOOK_URL');
-    if (!webhookUrl) {
-      this.logger.warn('SLACK_WEBHOOK_URL not set, skipping notification');
+  // 호출자가 await 없이 백그라운드로 실행하므로 절대 reject하지 않는다
+  async notifyReportCreated(report: ReportNotification): Promise<void> {
+    const token = this.config.get<string>('SLACK_BOT_TOKEN');
+    const channel = this.config.get<string>(
+      report.isEmergency ? 'SLACK_EMERGENCY_CHANNEL_ID' : 'SLACK_REPORT_CHANNEL_ID',
+    );
+    if (!token || !channel) {
+      this.logger.warn(
+        `Slack bot token or channel not set, skipping notification for report #${report.id}`,
+      );
       return;
     }
 
+    let threadTs: string;
     try {
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: `새 누수 접수 #${report.id}\n이름: ${escapeSlack(report.name)}\n주소: ${escapeSlack(report.address)}\n긴급도: ${report.urgency}`,
-        }),
-        signal: AbortSignal.timeout(SLACK_TIMEOUT_MS),
-      });
-      if (!response.ok) {
-        this.logger.error(
-          `Slack notification failed for report #${report.id}: HTTP ${response.status}`,
-        );
-      }
+      threadTs = await this.slack.postMessage(token, channel, buildMessage(report));
     } catch (error) {
-      this.logger.error(
-        `Slack notification failed for report #${report.id}`,
-        error instanceof Error ? error.stack : String(error),
-      );
+      this.logFailure(`Slack message failed for report #${report.id}`, error);
+      return;
     }
+
+    if (report.photos.length === 0) {
+      return;
+    }
+    try {
+      const files: SlackFile[] = [];
+      for (const [index, photo] of report.photos.entries()) {
+        const image = await this.images.toSlackImage(photo);
+        files.push({ filename: `photo-${index + 1}${image.extension}`, buffer: image.buffer });
+      }
+      await this.slack.uploadToThread(token, channel, threadTs, files);
+    } catch (error) {
+      this.logFailure(`Slack photo upload failed for report #${report.id}`, error);
+    }
+  }
+
+  private logFailure(message: string, error: unknown) {
+    this.logger.error(message, error instanceof Error ? error.stack : String(error));
   }
 }
