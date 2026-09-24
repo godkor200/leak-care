@@ -12,9 +12,10 @@ model LeakReport {
   name        String
   phone       String
   address     String
-  location    String
-  occurredAt  String
-  damageScope String
+  location    String?
+  occurredAt  String?
+  damageScope String?
+  description String?
   urgency     String
   status      String   @default("접수완료")
   createdAt   DateTime @default(now())

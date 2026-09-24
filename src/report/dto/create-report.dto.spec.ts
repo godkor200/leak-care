@@ -78,4 +78,13 @@ describe('CreateReportDto', () => {
     const errors = await validate(dto);
     expect(errors.some((e) => e.property === 'urgency')).toBe(true);
   });
+
+  it('rejects the 긴급 urgency, which is only allowed through the emergency form', async () => {
+    const dto = plainToInstance(CreateReportDto, {
+      ...validPayload,
+      urgency: '긴급',
+    });
+    const errors = await validate(dto);
+    expect(errors.some((e) => e.property === 'urgency')).toBe(true);
+  });
 });
