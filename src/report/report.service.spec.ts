@@ -107,6 +107,64 @@ describe('ReportService', () => {
     expect(prisma.leakReport.create).not.toHaveBeenCalled();
   });
 
+  it('builds the S3 key from a UUID and the allow-listed extension, not the original name', async () => {
+    const { service, storage } = createService();
+    const koreanPhoto = {
+      ...photo,
+      originalname: '누수 사진 #1.HEIC',
+      mimetype: 'application/octet-stream',
+    };
+
+    await service.create(dto, { photos: [koreanPhoto] });
+
+    const key = storage.uploadFile.mock.calls[0][0];
+    expect(key).toMatch(/^leak-reports\/[0-9a-f-]{36}\.heic$/);
+  });
+
+  it('derives the extension from the MIME type when the name has no allowed extension', async () => {
+    const { service, storage } = createService();
+    const blobPhoto = { ...photo, originalname: 'blob', mimetype: 'image/jpeg' };
+
+    await service.create(dto, { photos: [blobPhoto] });
+
+    const [key, , contentType] = storage.uploadFile.mock.calls[0];
+    expect(key).toMatch(/^leak-reports\/[0-9a-f-]{36}\.jpg$/);
+    expect(contentType).toBe('image/jpeg');
+  });
+
+  it('sets the Content-Type from the extension, ignoring the client MIME type', async () => {
+    const { service, storage } = createService();
+    const disguised = { ...photo, originalname: 'x.heic', mimetype: 'text/html' };
+
+    await service.create(dto, { photos: [disguised] });
+
+    expect(storage.uploadFile.mock.calls[0][2]).toBe('image/heic');
+  });
+
+  it('sets the video Content-Type from the extension', async () => {
+    const { service, storage } = createService();
+    const video = { ...photo, originalname: 'IMG_0002.MOV', mimetype: 'application/octet-stream' };
+
+    await service.create(dto, { photos: [], video });
+
+    const [key, , contentType] = storage.uploadFile.mock.calls[0];
+    expect(key).toMatch(/^leak-reports\/[0-9a-f-]{36}\.mov$/);
+    expect(contentType).toBe('video/quicktime');
+  });
+
+  it('reports which photo is invalid by position, without the filename', async () => {
+    const { service } = createService();
+    const pdf = { ...photo, originalname: 'ë\u0088\u0084ì\u0088\u0098.pdf', mimetype: 'application/pdf' };
+    const big = { ...photo, size: 11 * 1024 * 1024 };
+
+    await expect(
+      service.create(dto, { photos: [photo, photo, pdf] }),
+    ).rejects.toThrow('3번째 사진의 형식을 지원하지 않습니다.');
+    await expect(
+      service.create(dto, { photos: [photo, photo, big] }),
+    ).rejects.toThrow('3번째 사진이 10MB를 넘습니다.');
+  });
+
   it('does not save the report when file upload fails', async () => {
     const { service, prisma, storage } = createService();
     storage.uploadFile.mockRejectedValue(new Error('upload failed'));
