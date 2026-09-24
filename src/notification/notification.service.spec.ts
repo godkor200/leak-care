@@ -23,6 +23,41 @@ describe('NotificationService', () => {
     );
   });
 
+  it('escapes Slack mrkdwn control characters in user text', async () => {
+    const configService = {
+      get: jest.fn().mockReturnValue('https://hooks.slack.com/services/test'),
+    } as any;
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true });
+    global.fetch = fetchMock as any;
+
+    const service = new NotificationService(configService);
+    await service.sendLeakReportCreated({
+      ...report,
+      name: '<!channel> 홍길동',
+      address: 'A & B <https://evil.example|클릭>',
+    });
+
+    const { text } = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(text).toContain('&lt;!channel&gt; 홍길동');
+    expect(text).toContain('A &amp; B &lt;https://evil.example|클릭&gt;');
+    expect(text).not.toContain('<!channel>');
+  });
+
+  it('sends the webhook request with a timeout signal', async () => {
+    const configService = {
+      get: jest.fn().mockReturnValue('https://hooks.slack.com/services/test'),
+    } as any;
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true });
+    global.fetch = fetchMock as any;
+    const timeoutSpy = jest.spyOn(AbortSignal, 'timeout');
+
+    const service = new NotificationService(configService);
+    await service.sendLeakReportCreated(report);
+
+    expect(timeoutSpy).toHaveBeenCalledWith(5000);
+    expect(fetchMock.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
+  });
+
   it('does not throw when the webhook request fails', async () => {
     const configService = {
       get: jest.fn().mockReturnValue('https://hooks.slack.com/services/test'),
