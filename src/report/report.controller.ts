@@ -1,7 +1,9 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
+  Logger,
   NotFoundException,
   Param,
   ParseIntPipe,
@@ -24,6 +26,8 @@ import { UploadErrorFilter } from './upload-error.filter';
 
 @Controller('report')
 export class ReportController {
+  private readonly logger = new Logger(ReportController.name);
+
   constructor(private readonly reportService: ReportService) {}
 
   @Get()
@@ -55,7 +59,7 @@ export class ReportController {
     const dto = plainToInstance(CreateReportDto, body);
     const errors = await validate(dto);
     if (errors.length > 0) {
-      return res.render(
+      return res.status(200).render(
         'report/form',
         formViewModel('입력값을 다시 확인해주세요.'),
       );
@@ -68,11 +72,23 @@ export class ReportController {
       });
       return res.redirect(`/report/${report.id}/complete`);
     } catch (error) {
-      return res.render(
+      if (error instanceof BadRequestException) {
+        const response = error.getResponse();
+        const message = typeof response === 'string'
+          ? response
+          : (response as any).message || '요청이 올바르지 않습니다.';
+        return res.status(200).render(
+          'report/form',
+          formViewModel(message),
+        );
+      }
+      this.logger.error(
+        'Leak report submission failed',
+        error instanceof Error ? error.stack : String(error),
+      );
+      return res.status(200).render(
         'report/form',
-        formViewModel(
-          error instanceof Error ? error.message : '접수 중 오류가 발생했습니다.',
-        ),
+        formViewModel('접수 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'),
       );
     }
   }

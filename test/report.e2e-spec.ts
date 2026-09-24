@@ -11,15 +11,18 @@ describe('Report (e2e)', () => {
   let app: NestExpressApplication;
   let prisma: PrismaService;
   let createdId: number;
+  let storageServiceMock: any;
 
   beforeAll(async () => {
+    storageServiceMock = {
+      uploadFile: jest.fn().mockResolvedValue('https://example.com/fake.jpg'),
+    };
+
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     })
       .overrideProvider(StorageService)
-      .useValue({
-        uploadFile: jest.fn().mockResolvedValue('https://example.com/fake.jpg'),
-      })
+      .useValue(storageServiceMock)
       .overrideProvider(NotificationService)
       .useValue({
         sendLeakReportCreated: jest.fn().mockResolvedValue(undefined),
@@ -86,5 +89,29 @@ describe('Report (e2e)', () => {
 
     expect(res.status).toBe(400);
     expect(res.text).toContain('최대 20장');
+  });
+
+  it('POST /report with StorageService error shows safe message, no internal details', async () => {
+    storageServiceMock.uploadFile.mockRejectedValueOnce(new Error('AccessDenied: internal S3 detail'));
+
+    const res = await request(app.getHttpServer())
+      .post('/report')
+      .field('name', '업로드실패테스트')
+      .field('phone', '010-1234-5678')
+      .field('address', '서울시 강남구 테스트로 1')
+      .field('location', '천장 누수')
+      .field('occurredAt', '오늘 아침')
+      .field('damageScope', '거실 천장 일부 젖음')
+      .field('urgency', '보통')
+      .attach('photos', Buffer.from('fake-image'), 'photo1.jpg');
+
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('잠시 후 다시 시도해주세요');
+    expect(res.text).not.toContain('AccessDenied');
+
+    const count = await prisma.leakReport.count({
+      where: { name: '업로드실패테스트' },
+    });
+    expect(count).toBe(0);
   });
 });
