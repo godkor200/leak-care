@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { NotificationService } from './notification.service';
 import { ReportNotification } from './notification.types';
+import { SlackFile } from './slack.client';
 
 describe('NotificationService', () => {
   const photo = {
@@ -39,15 +40,25 @@ describe('NotificationService', () => {
   function createService(overrides: Record<string, string | undefined> = {}) {
     const values = { ...settings, ...overrides };
     const config = { get: jest.fn((key: string) => values[key]) } as any;
+    // uploadToThread는 파일을 하나씩 꺼내 쓰므로 목도 끝까지 소비해 받은 파일을 기록한다
+    const uploadedFiles: SlackFile[][] = [];
     const slack = {
       postMessage: jest.fn().mockResolvedValue('111.222'),
-      uploadToThread: jest.fn().mockResolvedValue(undefined),
+      uploadToThread: jest.fn(
+        async (_token: string, _channel: string, _ts: string, files: AsyncIterable<SlackFile>) => {
+          const received: SlackFile[] = [];
+          uploadedFiles.push(received);
+          for await (const file of files) {
+            received.push(file);
+          }
+        },
+      ),
     };
     const images = {
       toSlackImage: jest.fn(async (p) => p),
     };
     const service = new NotificationService(config, slack as any, images as any);
-    return { service, slack, images };
+    return { service, slack, images, uploadedFiles };
   }
 
   beforeEach(() => {
@@ -60,7 +71,7 @@ describe('NotificationService', () => {
   });
 
   it('posts a general report to the report channel and its photos to the thread', async () => {
-    const { service, slack } = createService();
+    const { service, slack, uploadedFiles } = createService();
 
     await service.notifyReportCreated(generalReport);
 
@@ -75,8 +86,9 @@ describe('NotificationService', () => {
       'xoxb-test',
       'C_REPORT',
       '111.222',
-      [{ filename: 'photo-1.jpg', buffer: photo.buffer }],
+      expect.anything(),
     );
+    expect(uploadedFiles[0]).toEqual([{ filename: 'photo-1.jpg', buffer: photo.buffer }]);
   });
 
   it('posts an emergency report to the emergency channel with @channel and the phone first', async () => {
@@ -94,7 +106,7 @@ describe('NotificationService', () => {
   });
 
   it('uploads HEIC photos after converting them for Slack', async () => {
-    const { service, slack, images } = createService();
+    const { service, images, uploadedFiles } = createService();
     const heic = {
       buffer: Buffer.from('heic'),
       extension: '.heic',
@@ -110,9 +122,38 @@ describe('NotificationService', () => {
     await service.notifyReportCreated({ ...generalReport, photos: [heic, photo] });
 
     expect(images.toSlackImage).toHaveBeenCalledWith(heic);
-    expect(slack.uploadToThread.mock.calls[0][3]).toEqual([
+    expect(uploadedFiles[0]).toEqual([
       { filename: 'photo-1.jpg', buffer: converted.buffer },
       { filename: 'photo-2.jpg', buffer: photo.buffer },
+    ]);
+  });
+
+  it('converts each photo only after the previous one has been handed to Slack', async () => {
+    const { service, slack, images } = createService();
+    const events: string[] = [];
+    images.toSlackImage.mockImplementation(async (p) => {
+      events.push(`convert ${p.buffer.toString()}`);
+      return p;
+    });
+    slack.uploadToThread.mockImplementation(async (_t, _c, _ts, files) => {
+      for await (const file of files) {
+        events.push(`upload ${file.filename}`);
+      }
+    });
+
+    await service.notifyReportCreated({
+      ...generalReport,
+      photos: [
+        { ...photo, buffer: Buffer.from('a') },
+        { ...photo, buffer: Buffer.from('b') },
+      ],
+    });
+
+    expect(events).toEqual([
+      'convert a',
+      'upload photo-1.jpg',
+      'convert b',
+      'upload photo-2.jpg',
     ]);
   });
 

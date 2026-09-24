@@ -85,14 +85,17 @@ export class NotificationService {
       return;
     }
     try {
-      const files: SlackFile[] = [];
-      for (const [index, photo] of report.photos.entries()) {
-        const image = await this.images.toSlackImage(photo);
-        files.push({ filename: `photo-${index + 1}${image.extension}`, buffer: image.buffer });
-      }
-      await this.slack.uploadToThread(token, channel, threadTs, files);
+      await this.slack.uploadToThread(token, channel, threadTs, this.slackFiles(report));
     } catch (error) {
       this.logFailure(`Slack photo upload failed for report #${report.id}`, error);
+    }
+  }
+
+  // 사진을 한 장씩 변환해 넘기므로 변환본은 업로드가 끝나면 바로 버려진다
+  private async *slackFiles(report: ReportNotification): AsyncIterable<SlackFile> {
+    for (const [index, photo] of report.photos.entries()) {
+      const image = await this.images.toSlackImage(photo);
+      yield { filename: `photo-${index + 1}${image.extension}`, buffer: image.buffer };
     }
   }
 

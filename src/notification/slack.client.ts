@@ -34,15 +34,16 @@ export class SlackClient {
     return body.ts as string;
   }
 
-  // 파일마다 업로드 URL을 받아 바이트를 올린 뒤, 한 번의 complete 호출로 쓰레드에 묶어서 공유한다
+  // 파일마다 업로드 URL을 받아 바이트를 올린 뒤, 한 번의 complete 호출로 쓰레드에 묶어서 공유한다.
+  // 파일은 하나씩 꺼내 올리므로 호출자가 다음 파일을 필요할 때 만들 수 있다(변환본을 한꺼번에 들고 있지 않음).
   async uploadToThread(
     token: string,
     channel: string,
     threadTs: string,
-    files: SlackFile[],
+    files: AsyncIterable<SlackFile>,
   ): Promise<void> {
     const uploaded: { id: string; title: string }[] = [];
-    for (const file of files) {
+    for await (const file of files) {
       const target = await this.callForm(token, 'files.getUploadURLExternal', {
         filename: file.filename,
         length: String(file.buffer.length),

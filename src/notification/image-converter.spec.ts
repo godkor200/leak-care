@@ -50,6 +50,20 @@ describe('ImageConverter', () => {
     });
   });
 
+  it('skips converting a HEIC photo larger than 6MB and keeps the original', async () => {
+    const photo = {
+      buffer: Buffer.alloc(6 * 1024 * 1024 + 1),
+      extension: '.heic',
+      contentType: 'image/heic',
+    };
+
+    const result = await new ImageConverter().toSlackImage(photo);
+
+    expect(result).toBe(photo);
+    expect(convertMock).not.toHaveBeenCalled();
+    expect(Logger.prototype.warn).toHaveBeenCalledTimes(1);
+  });
+
   it('falls back to the original photo when conversion fails', async () => {
     convertMock.mockRejectedValue(new Error('bad heic'));
     const photo = {

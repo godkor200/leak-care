@@ -1,4 +1,8 @@
-import { SlackApiError, SlackClient } from './slack.client';
+import { SlackApiError, SlackClient, SlackFile } from './slack.client';
+
+async function* filesOf(...files: SlackFile[]): AsyncIterable<SlackFile> {
+  yield* files;
+}
 
 function jsonResponse(body: unknown) {
   return { ok: true, status: 200, json: async () => body };
@@ -55,10 +59,15 @@ describe('SlackClient', () => {
       .mockResolvedValueOnce({ ok: true, status: 200 })
       .mockResolvedValueOnce(jsonResponse({ ok: true }));
 
-    await new SlackClient().uploadToThread('xoxb-test', 'C_REPORT', '111.222', [
-      { filename: 'photo-1.jpg', buffer: Buffer.from('a') },
-      { filename: 'photo-2.jpg', buffer: Buffer.from('bb') },
-    ]);
+    await new SlackClient().uploadToThread(
+      'xoxb-test',
+      'C_REPORT',
+      '111.222',
+      filesOf(
+        { filename: 'photo-1.jpg', buffer: Buffer.from('a') },
+        { filename: 'photo-2.jpg', buffer: Buffer.from('bb') },
+      ),
+    );
 
     const urls = fetchMock.mock.calls.map(([url]) => url);
     expect(urls).toEqual([
@@ -90,10 +99,33 @@ describe('SlackClient', () => {
       .mockResolvedValueOnce({ ok: false, status: 413 });
 
     await expect(
-      new SlackClient().uploadToThread('xoxb-test', 'C_REPORT', '111.222', [
-        { filename: 'photo-1.jpg', buffer: Buffer.from('a') },
-      ]),
+      new SlackClient().uploadToThread(
+        'xoxb-test',
+        'C_REPORT',
+        '111.222',
+        filesOf({ filename: 'photo-1.jpg', buffer: Buffer.from('a') }),
+      ),
     ).rejects.toThrow('file upload failed: HTTP 413');
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('pulls the next file only after the previous one is uploaded', async () => {
+    fetchMock.mockImplementation(async (url: string) =>
+      url.startsWith('https://files.slack.com')
+        ? { ok: true, status: 200 }
+        : jsonResponse({ ok: true, upload_url: 'https://files.slack.com/u', file_id: 'F' }),
+    );
+    const fetchCountWhenPulled: number[] = [];
+    async function* lazyFiles(): AsyncIterable<SlackFile> {
+      for (const name of ['photo-1.jpg', 'photo-2.jpg']) {
+        fetchCountWhenPulled.push(fetchMock.mock.calls.length);
+        yield { filename: name, buffer: Buffer.from('x') };
+      }
+    }
+
+    await new SlackClient().uploadToThread('xoxb-test', 'C_REPORT', '111.222', lazyFiles());
+
+    expect(fetchCountWhenPulled).toEqual([0, 2]);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 });
