@@ -34,6 +34,42 @@ describe('CreateReportDto', () => {
     expect(errors.some((e) => e.property === 'location')).toBe(true);
   });
 
+  it('trims surrounding whitespace from text fields', async () => {
+    const dto = plainToInstance(CreateReportDto, {
+      ...validPayload,
+      name: '  홍길동  ',
+    });
+    const errors = await validate(dto);
+    expect(errors).toHaveLength(0);
+    expect(dto.name).toBe('홍길동');
+  });
+
+  it('fails validation when name is whitespace only', async () => {
+    const dto = plainToInstance(CreateReportDto, {
+      ...validPayload,
+      name: '   ',
+    });
+    const errors = await validate(dto);
+    expect(errors.some((e) => e.property === 'name')).toBe(true);
+  });
+
+  it('fails validation when address is longer than 200 characters', async () => {
+    const dto = plainToInstance(CreateReportDto, {
+      ...validPayload,
+      address: '가'.repeat(201),
+    });
+    const errors = await validate(dto);
+    expect(errors.some((e) => e.property === 'address')).toBe(true);
+  });
+
+  it('fails validation with an invalid phone number', async () => {
+    for (const phone of ['abc-defg-hijk', '010', '<script>alert(1)</script>']) {
+      const dto = plainToInstance(CreateReportDto, { ...validPayload, phone });
+      const errors = await validate(dto);
+      expect(errors.some((e) => e.property === 'phone')).toBe(true);
+    }
+  });
+
   it('fails validation with an invalid urgency value', async () => {
     const dto = plainToInstance(CreateReportDto, {
       ...validPayload,
