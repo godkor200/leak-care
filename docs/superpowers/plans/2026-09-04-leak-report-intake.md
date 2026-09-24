@@ -19,7 +19,11 @@
 - Slack 알림은 Incoming Webhook에 Node `fetch`로 POST한다. Node 18 이상 필요(전역 `fetch` 사용).
 - 보험 정보(가입 여부/보험사/증권번호) 필드는 이번 범위에서 제외한다.
 - 회원가입/로그인 기능 없음 — 접수는 비로그인으로 받는다.
-- 사진은 최대 20장, 장당 10MB, jpg/png/heic만 허용. 동영상은 1개, 최대 200MB, mp4/mov만 허용.
+- 사진은 최대 20장, 장당 10MB. 동영상은 1개, 최대 200MB. 아이폰/안드로이드 기본 촬영 형식을 모두 지원한다:
+  - 사진 확장자: `.jpg` `.jpeg` `.png` `.heic` `.heif` `.webp` / MIME: `image/jpeg` `image/png` `image/heic` `image/heif` `image/webp`
+  - 동영상 확장자: `.mp4` `.mov` `.m4v` `.3gp` / MIME: `video/mp4` `video/quicktime` `video/x-m4v` `video/3gpp`
+  - 확장자(대소문자 무시) 또는 MIME 타입 중 하나라도 허용 목록에 있으면 통과 (HEIC는 브라우저에 따라 MIME이 `application/octet-stream`으로 옴). 둘 다 아니면 `BadRequestException`.
+  - 폼 `accept`는 `image/*` / `video/*` (모바일 카메라·갤러리 선택 지원), 형식 제한은 서버에서 한다.
 - 파일 업로드가 하나라도 실패하면 전체 제출을 실패 처리하고 DB에 레코드를 남기지 않는다.
 - Slack 알림 전송 실패는 접수 성공 여부에 영향을 주지 않는다 (로그만 남김).
 
@@ -958,6 +962,53 @@ describe('ReportService', () => {
     expect(prisma.leakReport.create).not.toHaveBeenCalled();
   });
 
+  it('accepts an iPhone HEIC photo even when the browser sends a generic MIME type', async () => {
+    const { service, storage } = createService();
+    const heicPhoto = {
+      ...photo,
+      originalname: 'IMG_0001.HEIC',
+      mimetype: 'application/octet-stream',
+    };
+
+    await service.create(dto, { photos: [heicPhoto] });
+
+    expect(storage.uploadFile).toHaveBeenCalledTimes(1);
+  });
+
+  it('accepts an Android mp4 video and an iPhone mov video', async () => {
+    const androidVideo = {
+      ...photo,
+      originalname: 'VID_20260901_120000.mp4',
+      mimetype: 'video/mp4',
+    };
+    const iphoneVideo = {
+      ...photo,
+      originalname: 'IMG_0002.MOV',
+      mimetype: 'video/quicktime',
+    };
+
+    for (const video of [androidVideo, iphoneVideo]) {
+      const { service, storage } = createService();
+      await service.create(dto, { photos: [], video });
+      expect(storage.uploadFile).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it('rejects a file with an unsupported type without saving anything', async () => {
+    const { service, prisma, storage } = createService();
+    const pdf = {
+      ...photo,
+      originalname: 'document.pdf',
+      mimetype: 'application/pdf',
+    };
+
+    await expect(service.create(dto, { photos: [pdf] })).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(storage.uploadFile).not.toHaveBeenCalled();
+    expect(prisma.leakReport.create).not.toHaveBeenCalled();
+  });
+
   it('does not save the report when file upload fails', async () => {
     const { service, prisma, storage } = createService();
     storage.uploadFile.mockRejectedValue(new Error('upload failed'));
@@ -980,6 +1031,7 @@ Expected: FAIL — `Cannot find module './report.service'`
 ```ts
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import { extname } from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { NotificationService } from '../notification/notification.service';
@@ -993,6 +1045,33 @@ export interface ReportFiles {
 const MAX_PHOTO_SIZE = 10 * 1024 * 1024;
 const MAX_VIDEO_SIZE = 200 * 1024 * 1024;
 
+// 아이폰(heic/heif, mov/m4v)과 안드로이드(jpg/webp, mp4/3gp) 기본 촬영 형식
+const PHOTO_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp'];
+const PHOTO_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/heic',
+  'image/heif',
+  'image/webp',
+];
+const VIDEO_EXTENSIONS = ['.mp4', '.mov', '.m4v', '.3gp'];
+const VIDEO_MIME_TYPES = [
+  'video/mp4',
+  'video/quicktime',
+  'video/x-m4v',
+  'video/3gpp',
+];
+
+// HEIC는 브라우저에 따라 MIME이 application/octet-stream으로 오므로 확장자도 함께 본다
+function isAllowedType(
+  file: Express.Multer.File,
+  extensions: string[],
+  mimeTypes: string[],
+): boolean {
+  const extension = extname(file.originalname).toLowerCase();
+  return extensions.includes(extension) || mimeTypes.includes(file.mimetype);
+}
+
 @Injectable()
 export class ReportService {
   constructor(
@@ -1003,16 +1082,28 @@ export class ReportService {
 
   async create(dto: CreateReportDto, files: ReportFiles) {
     for (const photo of files.photos) {
+      if (!isAllowedType(photo, PHOTO_EXTENSIONS, PHOTO_MIME_TYPES)) {
+        throw new BadRequestException(
+          `지원하지 않는 사진 형식입니다: ${photo.originalname}`,
+        );
+      }
       if (photo.size > MAX_PHOTO_SIZE) {
         throw new BadRequestException(
           `사진 파일이 너무 큽니다: ${photo.originalname}`,
         );
       }
     }
-    if (files.video && files.video.size > MAX_VIDEO_SIZE) {
-      throw new BadRequestException(
-        `동영상 파일이 너무 큽니다: ${files.video.originalname}`,
-      );
+    if (files.video) {
+      if (!isAllowedType(files.video, VIDEO_EXTENSIONS, VIDEO_MIME_TYPES)) {
+        throw new BadRequestException(
+          `지원하지 않는 동영상 형식입니다: ${files.video.originalname}`,
+        );
+      }
+      if (files.video.size > MAX_VIDEO_SIZE) {
+        throw new BadRequestException(
+          `동영상 파일이 너무 큽니다: ${files.video.originalname}`,
+        );
+      }
     }
 
     const uploaded: { url: string; type: 'photo' | 'video' }[] = [];
@@ -1067,7 +1158,7 @@ export class ReportService {
 - [ ] **Step 4: 테스트 통과 확인**
 
 Run: `npm test -- report.service.spec.ts`
-Expected: PASS — 3개 테스트 모두 통과
+Expected: PASS — 6개 테스트 모두 통과
 
 - [ ] **Step 5: 커밋**
 
@@ -1218,10 +1309,10 @@ Expected: FAIL — `POST /report` returns 404 (라우트 없음)
     <fieldset>
       <legend>파일 첨부</legend>
       <label>사진 (최대 20장)
-        <input type="file" name="photos" accept="image/jpeg,image/png,image/heic" multiple />
+        <input type="file" name="photos" accept="image/*" multiple />
       </label>
       <label>동영상
-        <input type="file" name="video" accept="video/mp4,video/quicktime" />
+        <input type="file" name="video" accept="video/*" />
       </label>
     </fieldset>
     <button type="submit">접수 완료</button>
