@@ -1,0 +1,20 @@
+body {
+  font-family: system-ui, sans-serif;
+  max-width: 600px;
+  margin: 40px auto;
+  padding: 0 16px;
+  color: #1a1a1a;
+}
+
+fieldset {
+  margin-bottom: 16px;
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.error {
+  color: #c0392b;
+}

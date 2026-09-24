@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>누수 접수 - LeakCare</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <h1>누수 접수</h1>
+  {{#if error}}
+    <p class="error">{{error}}</p>
+  {{/if}}
+  <form action="/report" method="post" enctype="multipart/form-data">
+    <fieldset>
+      <legend>기본 정보</legend>
+      <label>이름 <input type="text" name="name" required /></label>
+      <label>연락처 <input type="text" name="phone" required /></label>
+      <label>주소 <input type="text" name="address" required /></label>
+    </fieldset>
+    <fieldset>
+      <legend>누수 정보</legend>
+      <label>발생 장소
+        <select name="location" required>
+          {{#each locations}}
+            <option value="{{this}}">{{this}}</option>
+          {{/each}}
+        </select>
+      </label>
+      <label>발생 시점 <input type="text" name="occurredAt" required /></label>
+      <label>피해 범위 <input type="text" name="damageScope" required /></label>
+      <label>긴급도
+        <select name="urgency" required>
+          {{#each urgencies}}
+            <option value="{{this}}">{{this}}</option>
+          {{/each}}
+        </select>
+      </label>
+    </fieldset>
+    <fieldset>
+      <legend>파일 첨부</legend>
+      <label>사진 (최대 20장)
+        <input type="file" name="photos" accept="image/*" multiple />
+      </label>
+      <label>동영상
+        <input type="file" name="video" accept="video/*" />
+      </label>
+    </fieldset>
+    <button type="submit">접수 완료</button>
+  </form>
+</body>
+</html>
