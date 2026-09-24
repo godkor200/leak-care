@@ -45,14 +45,30 @@ const GENERAL_FORM: ReportForm<CreateReportDto> = {
   view: 'report/form',
   viewModel: formViewModel,
   dtoClass: CreateReportDto,
-  toReport: (dto) => dto,
+  // DTO에 선언되지 않은 필드도 plainToInstance가 남기므로 검증한 필드만 골라 저장한다
+  toReport: ({ name, phone, address, location, occurredAt, damageScope, urgency }) => ({
+    name,
+    phone,
+    address,
+    location,
+    occurredAt,
+    damageScope,
+    urgency,
+  }),
 };
 
 const EMERGENCY_FORM: ReportForm<CreateEmergencyReportDto> = {
   view: 'report/emergency',
   viewModel: emergencyFormViewModel,
   dtoClass: CreateEmergencyReportDto,
-  toReport: (dto) => ({ ...dto, urgency: UrgencyLevel.HIGH }),
+  toReport: ({ name, phone, address, location, description }) => ({
+    name,
+    phone,
+    address,
+    location,
+    description,
+    urgency: UrgencyLevel.HIGH,
+  }),
   requirePhoto: true,
 };
 

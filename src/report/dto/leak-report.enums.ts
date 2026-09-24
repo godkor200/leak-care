@@ -14,7 +14,7 @@ export enum UrgencyLevel {
 }
 
 // 일반 접수 폼에서 고를 수 있는 긴급도. '긴급'은 긴급 출동 경로(/emergency)에서만 저장한다.
-export const GENERAL_URGENCY_LEVELS: UrgencyLevel[] = [
+export const GENERAL_URGENCY_LEVELS: readonly UrgencyLevel[] = [
   UrgencyLevel.LOW,
   UrgencyLevel.MEDIUM,
 ];

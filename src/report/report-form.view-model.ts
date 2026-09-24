@@ -42,7 +42,7 @@ export function pickFormValues(body: unknown): FormValues {
   return values;
 }
 
-function options(all: string[], selected?: string) {
+function options(all: readonly string[], selected?: string) {
   return all.map((value) => ({ value, selected: value === selected }));
 }
 

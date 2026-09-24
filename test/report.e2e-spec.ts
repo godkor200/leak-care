@@ -56,6 +56,8 @@ describe('Report (e2e)', () => {
       .field('occurredAt', '오늘 아침')
       .field('damageScope', '거실 천장 일부 젖음')
       .field('urgency', '보통')
+      // 일반 폼에 없는 description은 검증 대상이 아니므로 저장되면 안 된다
+      .field('description', '끼워넣은 상황 설명')
       .attach('photos', Buffer.from('fake-image'), 'photo1.jpg');
 
     expect(res.status).toBe(302);
@@ -64,6 +66,7 @@ describe('Report (e2e)', () => {
     createdId = Number(res.headers.location.split('/')[2]);
     const saved = await prisma.leakReport.findUnique({ where: { id: createdId } });
     expect(saved?.name).toBe('홍길동');
+    expect(saved?.description).toBeNull();
 
     const completeRes = await request(app.getHttpServer()).get(res.headers.location);
     expect(completeRes.status).toBe(200);

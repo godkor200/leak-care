@@ -110,6 +110,9 @@ describe('Emergency (e2e)', () => {
       .field('address', '서울시 마포구 긴급로 2')
       .field('location', '')
       .field('description', '천장에서 물이 떨어지고 있어요')
+      // 긴급 폼에 없는 필드는 검증 대상이 아니므로 저장되면 안 된다
+      .field('occurredAt', '끼워넣은 발생 시점')
+      .field('damageScope', '가'.repeat(600))
       .attach('photos', Buffer.from('fake-image'), 'photo1.jpg');
 
     expect(res.status).toBe(302);
