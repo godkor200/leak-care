@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>누수 접수 - LeakCare</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
@@ -10,42 +11,51 @@
   {{#if error}}
     <p class="error">{{error}}</p>
   {{/if}}
-  <form action="/report" method="post" enctype="multipart/form-data">
+  <form id="report-form" action="/report" method="post" enctype="multipart/form-data">
     <fieldset>
       <legend>기본 정보</legend>
-      <label>이름 <input type="text" name="name" required /></label>
-      <label>연락처 <input type="text" name="phone" required /></label>
-      <label>주소 <input type="text" name="address" required /></label>
+      <label>이름 <input type="text" name="name" value="{{values.name}}" autocomplete="name" maxlength="50" required /></label>
+      <label>연락처 <input type="tel" name="phone" value="{{values.phone}}" inputmode="tel" autocomplete="tel" maxlength="20" required /></label>
+      <label>주소 <input type="text" name="address" value="{{values.address}}" autocomplete="street-address" maxlength="200" required /></label>
     </fieldset>
     <fieldset>
       <legend>누수 정보</legend>
       <label>발생 장소
         <select name="location" required>
           {{#each locations}}
-            <option value="{{this}}">{{this}}</option>
+            <option value="{{value}}"{{#if selected}} selected{{/if}}>{{value}}</option>
           {{/each}}
         </select>
       </label>
-      <label>발생 시점 <input type="text" name="occurredAt" required /></label>
-      <label>피해 범위 <input type="text" name="damageScope" required /></label>
+      <label>발생 시점 <input type="text" name="occurredAt" value="{{values.occurredAt}}" maxlength="100" required /></label>
+      <label>피해 범위 <input type="text" name="damageScope" value="{{values.damageScope}}" maxlength="500" required /></label>
       <label>긴급도
         <select name="urgency" required>
           {{#each urgencies}}
-            <option value="{{this}}">{{this}}</option>
+            <option value="{{value}}"{{#if selected}} selected{{/if}}>{{value}}</option>
           {{/each}}
         </select>
       </label>
     </fieldset>
     <fieldset>
       <legend>파일 첨부</legend>
-      <label>사진 (최대 20장)
+      <label>사진
         <input type="file" name="photos" accept="image/*" multiple />
       </label>
+      <p class="help">최대 20장, 장당 10MB</p>
       <label>동영상
         <input type="file" name="video" accept="video/*" />
       </label>
+      <p class="help">1분 이내 영상, 최대 200MB</p>
     </fieldset>
-    <button type="submit">접수 완료</button>
+    <button type="submit" id="submit-button">접수 완료</button>
   </form>
+  <script>
+    document.getElementById('report-form').addEventListener('submit', function () {
+      var button = document.getElementById('submit-button');
+      button.disabled = true;
+      button.textContent = '업로드 중…';
+    });
+  </script>
 </body>
 </html>

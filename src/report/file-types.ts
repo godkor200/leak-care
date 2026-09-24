@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { extname } from 'path';
 
 export type UploadKind = 'photo' | 'video';
@@ -51,4 +52,11 @@ export function isAllowedType(
   kind: UploadKind,
 ): boolean {
   return resolveFileType(file, kind) !== null;
+}
+
+// multer fileFilter에서 버퍼링 전에 거부할 때 사용. UploadErrorFilter가 이 메시지를 그대로 보여준다.
+export class UnsupportedFileTypeException extends BadRequestException {
+  constructor() {
+    super('지원하지 않는 사진/동영상 형식입니다.');
+  }
 }

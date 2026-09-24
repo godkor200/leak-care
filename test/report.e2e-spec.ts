@@ -68,6 +68,11 @@ describe('Report (e2e)', () => {
     const completeRes = await request(app.getHttpServer()).get(res.headers.location);
     expect(completeRes.status).toBe(200);
     expect(completeRes.text).toContain(String(createdId));
+    expect(completeRes.text).toContain('천장 누수');
+    expect(completeRes.text).toContain('담당자가 곧 연락드리겠습니다.');
+    expect(completeRes.text).not.toContain('홍길동');
+    expect(completeRes.text).not.toContain('서울시 강남구 테스트로 1');
+    expect(completeRes.text).not.toContain('010-1234-5678');
   });
 
   it('POST /report with more than 20 photos returns 400 with a Korean error message', async () => {
@@ -88,7 +93,62 @@ describe('Report (e2e)', () => {
     const res = await req;
 
     expect(res.status).toBe(400);
-    expect(res.text).toContain('최대 20장');
+    expect(res.text).toContain('첨부 파일 개수를 확인해주세요');
+  });
+
+  it('POST /report rejects an unsupported file type before upload and keeps the input', async () => {
+    storageServiceMock.uploadFile.mockClear();
+
+    const res = await request(app.getHttpServer())
+      .post('/report')
+      .field('name', '형식거부테스트')
+      .field('phone', '010-1234-5678')
+      .field('address', '서울시 강남구 테스트로 1')
+      .field('location', '천장 누수')
+      .field('occurredAt', '오늘 아침')
+      .field('damageScope', '거실 천장 일부 젖음')
+      .field('urgency', '긴급')
+      .attach('photos', Buffer.from('%PDF-1.4'), {
+        filename: 'document.pdf',
+        contentType: 'application/pdf',
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.text).toContain('지원하지 않는 사진/동영상 형식입니다');
+    expect(res.text).toContain('첨부 파일은 다시 선택해주세요.');
+    expect(res.text).not.toContain('첨부 파일 개수를 확인해주세요');
+    expect(res.text).toContain('value="형식거부테스트"');
+    expect(res.text).toMatch(/<option value="긴급" selected>/);
+    expect(storageServiceMock.uploadFile).not.toHaveBeenCalled();
+  });
+
+  it('POST /report with invalid fields returns 400, lists the fields, and keeps the input', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/report')
+      .field('name', '   ')
+      .field('phone', 'abc')
+      .field('address', '서울시 강남구 테스트로 1')
+      .field('location', '욕실 누수')
+      .field('occurredAt', '오늘 아침')
+      .field('damageScope', '거실 천장 일부 젖음')
+      .field('urgency', '보통');
+
+    expect(res.status).toBe(400);
+    expect(res.text).toContain('이름');
+    expect(res.text).toMatch(/입력값을 다시 확인해주세요[^<]*이름, 연락처/);
+    expect(res.text).not.toContain('첨부 파일은 다시 선택해주세요.');
+    expect(res.text).toContain('value="서울시 강남구 테스트로 1"');
+    expect(res.text).toMatch(/<option value="욕실 누수" selected>/);
+  });
+
+  it('POST /report without multipart body shows a validation error instead of crashing', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/report')
+      .type('form')
+      .send({ name: '홍길동' });
+
+    expect(res.status).toBe(400);
+    expect(res.text).toContain('입력값을 다시 확인해주세요');
   });
 
   it('POST /report with StorageService error shows safe message, no internal details', async () => {
@@ -105,7 +165,7 @@ describe('Report (e2e)', () => {
       .field('urgency', '보통')
       .attach('photos', Buffer.from('fake-image'), 'photo1.jpg');
 
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(500);
     expect(res.text).toContain('잠시 후 다시 시도해주세요');
     expect(res.text).not.toContain('AccessDenied');
 

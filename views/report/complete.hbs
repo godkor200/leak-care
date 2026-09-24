@@ -2,15 +2,16 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>접수 완료 - LeakCare</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
   <h1>접수가 완료되었습니다</h1>
   <p>접수번호: {{report.id}}</p>
-  <p>이름: {{report.name}}</p>
-  <p>주소: {{report.address}}</p>
+  <p>발생 장소: {{report.location}}</p>
   <p>긴급도: {{report.urgency}}</p>
   <p>상태: {{report.status}}</p>
+  <p>담당자가 곧 연락드리겠습니다.</p>
 </body>
 </html>
