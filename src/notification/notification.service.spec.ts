@@ -161,6 +161,30 @@ describe('NotificationService', () => {
     expect(slack.uploadToThread).not.toHaveBeenCalled();
   });
 
+  it('sends one report at a time, starting the next only after the previous finishes', async () => {
+    const { service, slack } = createService();
+    let releaseFirst: (ts: string) => void = () => {};
+    slack.postMessage.mockReturnValueOnce(
+      new Promise<string>((resolve) => {
+        releaseFirst = resolve;
+      }),
+    );
+
+    const first = service.notifyReportCreated(generalReport);
+    const second = service.notifyReportCreated(emergencyReport);
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(slack.postMessage).toHaveBeenCalledTimes(1);
+    expect(slack.postMessage.mock.calls[0][1]).toBe('C_REPORT');
+
+    releaseFirst('111.222');
+    await expect(Promise.all([first, second])).resolves.toEqual([undefined, undefined]);
+
+    expect(slack.postMessage).toHaveBeenCalledTimes(2);
+    expect(slack.postMessage.mock.calls[1][1]).toBe('C_EMERGENCY');
+    expect(slack.uploadToThread).toHaveBeenCalledTimes(2);
+  });
+
   it.each([
     ['the bot token', { SLACK_BOT_TOKEN: undefined }],
     ['the channel', { SLACK_EMERGENCY_CHANNEL_ID: undefined }],

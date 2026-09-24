@@ -45,6 +45,7 @@ function buildMessage(report: ReportNotification): string {
 @Injectable()
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
+  private queue: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly config: ConfigService,
@@ -52,8 +53,15 @@ export class NotificationService {
     private readonly images: ImageConverter,
   ) {}
 
-  // 호출자가 await 없이 백그라운드로 실행하므로 절대 reject하지 않는다
-  async notifyReportCreated(report: ReportNotification): Promise<void> {
+  // 사진 변환·업로드가 CPU와 메모리를 많이 쓰므로 한 번에 한 건씩 처리한다
+  notifyReportCreated(report: ReportNotification): Promise<void> {
+    const run = this.queue.then(() => this.send(report));
+    this.queue = run;
+    return run;
+  }
+
+  // 호출자가 await 없이 백그라운드로 실행하고 큐가 이어지므로 절대 reject하지 않는다
+  private async send(report: ReportNotification): Promise<void> {
     const token = this.config.get<string>('SLACK_BOT_TOKEN');
     const channel = this.config.get<string>(
       report.isEmergency ? 'SLACK_EMERGENCY_CHANNEL_ID' : 'SLACK_REPORT_CHANNEL_ID',

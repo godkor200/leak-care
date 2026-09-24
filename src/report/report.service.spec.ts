@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, Logger } from '@nestjs/common';
 import { ReportService } from './report.service';
 
 describe('ReportService', () => {
@@ -191,6 +191,25 @@ describe('ReportService', () => {
 
     expect(result.id).toBe(1);
     expect(notification.notifyReportCreated).toHaveBeenCalledTimes(1);
+  });
+
+  it('logs instead of crashing when the notification rejects unexpectedly', async () => {
+    const errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    try {
+      const { service, notification } = createService();
+      notification.notifyReportCreated.mockRejectedValue(new Error('boom'));
+
+      const result = await service.create(dto, { photos: [photo] });
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(result.id).toBe(1);
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Slack notification crashed unexpectedly',
+        expect.stringContaining('boom'),
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 
   it('saves an emergency report without general-only fields and flags the notification', async () => {

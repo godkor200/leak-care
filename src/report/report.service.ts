@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
@@ -28,6 +28,8 @@ const MAX_VIDEO_SIZE = 200 * 1024 * 1024;
 
 @Injectable()
 export class ReportService {
+  private readonly logger = new Logger(ReportService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
@@ -85,22 +87,29 @@ export class ReportService {
     });
 
     // HEIC 변환과 Slack 사진 업로드는 오래 걸릴 수 있어 고객 응답을 기다리게 하지 않는다.
-    // notifyReportCreated는 내부에서 모든 에러를 잡으므로 reject되지 않는다.
-    void this.notification.notifyReportCreated({
-      id: report.id,
-      name: report.name,
-      phone: report.phone,
-      address: report.address,
-      urgency: report.urgency,
-      isEmergency: report.urgency === UrgencyLevel.HIGH,
-      location: report.location,
-      description: report.description,
-      photos: files.photos.map((photo, index) => ({
-        buffer: photo.buffer,
-        ...photoTypes[index],
-      })),
-      hasVideo: Boolean(files.video),
-    });
+    // notifyReportCreated는 내부에서 모든 에러를 잡지만, 예상 못 한 reject로 프로세스가 죽지 않도록 한 번 더 막는다.
+    this.notification
+      .notifyReportCreated({
+        id: report.id,
+        name: report.name,
+        phone: report.phone,
+        address: report.address,
+        urgency: report.urgency,
+        isEmergency: report.urgency === UrgencyLevel.HIGH,
+        location: report.location,
+        description: report.description,
+        photos: files.photos.map((photo, index) => ({
+          buffer: photo.buffer,
+          ...photoTypes[index],
+        })),
+        hasVideo: Boolean(files.video),
+      })
+      .catch((error) =>
+        this.logger.error(
+          'Slack notification crashed unexpectedly',
+          error instanceof Error ? error.stack : String(error),
+        ),
+      );
 
     return report;
   }
