@@ -19,7 +19,10 @@ import { validate } from 'class-validator';
 import type { Response } from 'express';
 import { NewLeakReport, ReportService } from './report.service';
 import { CreateReportDto } from './dto/create-report.dto';
+import { CreateEmergencyReportDto } from './dto/create-emergency-report.dto';
+import { UrgencyLevel } from './dto/leak-report.enums';
 import {
+  emergencyFormViewModel,
   FIELD_LABELS,
   formViewModel,
   pickFormValues,
@@ -34,6 +37,8 @@ interface ReportForm<T extends object> {
   viewModel: UploadFormViewModel;
   dtoClass: ClassConstructor<T>;
   toReport: (dto: T) => NewLeakReport;
+  // 장난 접수를 막기 위해 긴급 출동은 현장 사진을 1장 이상 요구한다
+  requirePhoto?: boolean;
 }
 
 const GENERAL_FORM: ReportForm<CreateReportDto> = {
@@ -42,6 +47,16 @@ const GENERAL_FORM: ReportForm<CreateReportDto> = {
   dtoClass: CreateReportDto,
   toReport: (dto) => dto,
 };
+
+const EMERGENCY_FORM: ReportForm<CreateEmergencyReportDto> = {
+  view: 'report/emergency',
+  viewModel: emergencyFormViewModel,
+  dtoClass: CreateEmergencyReportDto,
+  toReport: (dto) => ({ ...dto, urgency: UrgencyLevel.HIGH }),
+  requirePhoto: true,
+};
+
+const PHOTO_REQUIRED_MESSAGE = '현장 사진을 1장 이상 올려주세요.';
 
 @Controller()
 export class ReportController {
@@ -66,6 +81,23 @@ export class ReportController {
     return this.submitForm(GENERAL_FORM, body, files, res);
   }
 
+  @Get('emergency')
+  @Render('report/emergency')
+  showEmergencyForm() {
+    return emergencyFormViewModel();
+  }
+
+  @Post('emergency')
+  @UseFilters(new UploadErrorFilter(EMERGENCY_FORM.view, EMERGENCY_FORM.viewModel))
+  @UseInterceptors(ReportUploadInterceptor())
+  submitEmergency(
+    @Body() body: Record<string, string>,
+    @UploadedFiles() files: UploadedReportFiles,
+    @Res() res: Response,
+  ) {
+    return this.submitForm(EMERGENCY_FORM, body, files, res);
+  }
+
   @Get('report/:id/complete')
   @Render('report/complete')
   async showComplete(@Param('id', ParseIntPipe) id: number) {
@@ -75,6 +107,7 @@ export class ReportController {
     }
     // 접수번호가 순차적이라 누구나 조회할 수 있으므로 개인정보(이름·연락처·주소)는 넘기지 않는다
     return {
+      isEmergency: report.urgency === UrgencyLevel.HIGH,
       report: {
         id: report.id,
         location: report.location,
@@ -106,6 +139,10 @@ export class ReportController {
         (e) => FIELD_LABELS[e.property as keyof typeof FIELD_LABELS] ?? e.property,
       );
       return renderError(400, `입력값을 다시 확인해주세요: ${labels.join(', ')}`);
+    }
+
+    if (form.requirePhoto && photos.length === 0) {
+      return renderError(400, PHOTO_REQUIRED_MESSAGE);
     }
 
     try {

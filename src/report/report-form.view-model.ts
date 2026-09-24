@@ -8,6 +8,7 @@ const TEXT_FIELDS = [
   'occurredAt',
   'damageScope',
   'urgency',
+  'description',
 ] as const;
 
 type FormField = (typeof TEXT_FIELDS)[number];
@@ -21,6 +22,7 @@ export const FIELD_LABELS: Record<FormField, string> = {
   occurredAt: '발생 시점',
   damageScope: '피해 범위',
   urgency: '긴급도',
+  description: '상황 설명',
 };
 
 export const REATTACH_FILES_NOTE = '첨부 파일은 다시 선택해주세요.';
@@ -48,6 +50,14 @@ export function formViewModel(error?: string, values: FormValues = {}) {
   return {
     locations: options(Object.values(LeakLocation), values.location),
     urgencies: options(GENERAL_URGENCY_LEVELS, values.urgency),
+    values,
+    error,
+  };
+}
+
+export function emergencyFormViewModel(error?: string, values: FormValues = {}) {
+  return {
+    locations: options(Object.values(LeakLocation), values.location),
     values,
     error,
   };
