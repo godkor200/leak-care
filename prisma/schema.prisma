@@ -1,0 +1,31 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model LeakReport {
+  id          Int      @id @default(autoincrement())
+  name        String
+  phone       String
+  address     String
+  location    String
+  occurredAt  String
+  damageScope String
+  urgency     String
+  status      String   @default("접수완료")
+  createdAt   DateTime @default(now())
+  files       LeakReportFile[]
+}
+
+model LeakReportFile {
+  id           Int        @id @default(autoincrement())
+  leakReportId Int
+  leakReport   LeakReport @relation(fields: [leakReportId], references: [id])
+  url          String
+  type         String
+  createdAt    DateTime   @default(now())
+}
