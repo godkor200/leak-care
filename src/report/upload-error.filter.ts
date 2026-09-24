@@ -10,7 +10,7 @@ import {
 import type { Request, Response } from 'express';
 import { UnsupportedFileTypeException } from './file-types';
 import {
-  formViewModel,
+  FormValues,
   pickFormValues,
   REATTACH_FILES_NOTE,
 } from './report-form.view-model';
@@ -24,6 +24,8 @@ const GENERIC_MESSAGE = '요청을 처리할 수 없습니다. 다시 시도해�
 // Nest가 BadRequestException으로 바꿔주는 메시지와, multer 2.x가 그대로 던지는 MulterError 코드 모두 처리
 const COUNT_ERROR_CODES = ['LIMIT_FILE_COUNT', 'LIMIT_UNEXPECTED_FILE'];
 const COUNT_ERROR_MESSAGES = ['Unexpected field', 'Unexpected file field'];
+
+export type UploadFormViewModel = (error: string, values: FormValues) => object;
 
 interface MulterLikeError extends Error {
   code?: string;
@@ -46,10 +48,16 @@ function isCountError(exception: unknown): boolean {
   return false;
 }
 
-// POST /report의 업로드(multer) 단계에서 난 오류를 폼 화면으로 다시 보여준다
+// 폼 제출의 업로드(multer) 단계에서 난 오류를 해당 폼 화면으로 다시 보여준다.
+// 생성자 인자가 있으므로 @UseFilters(new UploadErrorFilter(...))처럼 인스턴스로 넘긴다.
 @Catch()
 export class UploadErrorFilter implements ExceptionFilter {
   private readonly logger = new Logger(UploadErrorFilter.name);
+
+  constructor(
+    private readonly view: string,
+    private readonly viewModel: UploadFormViewModel,
+  ) {}
 
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
@@ -83,6 +91,6 @@ export class UploadErrorFilter implements ExceptionFilter {
 
     response
       .status(status)
-      .render('report/form', formViewModel(message, pickFormValues(request.body)));
+      .render(this.view, this.viewModel(message, pickFormValues(request.body)));
   }
 }

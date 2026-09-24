@@ -1,4 +1,4 @@
-import { LeakLocation, UrgencyLevel } from './dto/leak-report.enums';
+import { GENERAL_URGENCY_LEVELS, LeakLocation } from './dto/leak-report.enums';
 
 const TEXT_FIELDS = [
   'name',
@@ -47,7 +47,7 @@ function options(all: string[], selected?: string) {
 export function formViewModel(error?: string, values: FormValues = {}) {
   return {
     locations: options(Object.values(LeakLocation), values.location),
-    urgencies: options(Object.values(UrgencyLevel), values.urgency),
+    urgencies: options(GENERAL_URGENCY_LEVELS, values.urgency),
     values,
     error,
   };

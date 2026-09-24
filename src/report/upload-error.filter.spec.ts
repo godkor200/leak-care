@@ -5,8 +5,11 @@ import {
 } from '@nestjs/common';
 import { UnsupportedFileTypeException } from './file-types';
 import { UploadErrorFilter } from './upload-error.filter';
+import { formViewModel } from './report-form.view-model';
 
 describe('UploadErrorFilter', () => {
+  const createFilter = () => new UploadErrorFilter('report/form', formViewModel);
+
   function createHost(body: Record<string, unknown> = {}) {
     const response = {
       status: jest.fn().mockReturnThis(),
@@ -35,7 +38,7 @@ describe('UploadErrorFilter', () => {
   it('renders the size message with 413 when a file is too large', () => {
     const { host, response } = createHost();
 
-    new UploadErrorFilter().catch(
+    createFilter().catch(
       new PayloadTooLargeException('File too large'),
       host,
     );
@@ -48,7 +51,7 @@ describe('UploadErrorFilter', () => {
   it('renders the unsupported type message from the file filter', () => {
     const { host, response } = createHost();
 
-    new UploadErrorFilter().catch(new UnsupportedFileTypeException(), host);
+    createFilter().catch(new UnsupportedFileTypeException(), host);
 
     expect(response.status).toHaveBeenCalledWith(400);
     expect(renderedError(response)).toContain(
@@ -65,7 +68,7 @@ describe('UploadErrorFilter', () => {
   ])('renders the count message with 400 for %s', (_label, error) => {
     const { host, response } = createHost();
 
-    new UploadErrorFilter().catch(error, host);
+    createFilter().catch(error, host);
 
     expect(response.status).toHaveBeenCalledWith(400);
     expect(renderedError(response)).toContain('최대 20장');
@@ -74,7 +77,7 @@ describe('UploadErrorFilter', () => {
   it('renders a generic message for any other error', () => {
     const { host, response } = createHost();
 
-    new UploadErrorFilter().catch(
+    createFilter().catch(
       new BadRequestException('Multipart: Malformed part header'),
       host,
     );
@@ -86,15 +89,42 @@ describe('UploadErrorFilter', () => {
   });
 
   it('keeps the text fields that were already submitted', () => {
-    const { host, response } = createHost({ name: '홍길동', urgency: '긴급' });
+    const { host, response } = createHost({ name: '홍길동', urgency: '보통' });
 
-    new UploadErrorFilter().catch(
+    createFilter().catch(
       new PayloadTooLargeException('File too large'),
       host,
     );
 
     const [, model] = response.render.mock.calls[0];
     expect(model.values.name).toBe('홍길동');
-    expect(model.urgencies).toContainEqual({ value: '긴급', selected: true });
+    expect(model.urgencies).toContainEqual({ value: '보통', selected: true });
+  });
+
+  it('renders the view and view model it was configured with', () => {
+    const { host, response } = createHost({ name: '홍길동' });
+    const viewModel = jest.fn((error: string, values: object) => ({ error, values, custom: true }));
+
+    new UploadErrorFilter('report/emergency', viewModel).catch(
+      new PayloadTooLargeException('File too large'),
+      host,
+    );
+
+    const [view, model] = response.render.mock.calls[0];
+    expect(view).toBe('report/emergency');
+    expect(model.custom).toBe(true);
+    expect(viewModel).toHaveBeenCalledWith(
+      expect.stringContaining('200MB'),
+      { name: '홍길동' },
+    );
+  });
+
+  it('offers only 낮음 and 보통 as urgency options on the general form', () => {
+    const { host, response } = createHost();
+
+    createFilter().catch(new PayloadTooLargeException('File too large'), host);
+
+    const [, model] = response.render.mock.calls[0];
+    expect(model.urgencies.map((o: { value: string }) => o.value)).toEqual(['낮음', '보통']);
   });
 });

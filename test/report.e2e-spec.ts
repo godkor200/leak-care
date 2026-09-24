@@ -107,7 +107,7 @@ describe('Report (e2e)', () => {
       .field('location', '천장 누수')
       .field('occurredAt', '오늘 아침')
       .field('damageScope', '거실 천장 일부 젖음')
-      .field('urgency', '긴급')
+      .field('urgency', '보통')
       .attach('photos', Buffer.from('%PDF-1.4'), {
         filename: 'document.pdf',
         contentType: 'application/pdf',
@@ -118,7 +118,7 @@ describe('Report (e2e)', () => {
     expect(res.text).toContain('첨부 파일은 다시 선택해주세요.');
     expect(res.text).not.toContain('첨부 파일 개수를 확인해주세요');
     expect(res.text).toContain('value="형식거부테스트"');
-    expect(res.text).toMatch(/<option value="긴급" selected>/);
+    expect(res.text).toMatch(/<option value="보통" selected>/);
     expect(storageServiceMock.uploadFile).not.toHaveBeenCalled();
   });
 
@@ -172,6 +172,32 @@ describe('Report (e2e)', () => {
     const count = await prisma.leakReport.count({
       where: { name: '업로드실패테스트' },
     });
+    expect(count).toBe(0);
+  });
+
+  it('GET /report links to the emergency form and offers no 긴급 urgency', async () => {
+    const res = await request(app.getHttpServer()).get('/report');
+
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('href="/emergency"');
+    expect(res.text).toContain('<option value="보통"');
+    expect(res.text).not.toContain('<option value="긴급"');
+  });
+
+  it('POST /report with urgency 긴급 is rejected and nothing is saved', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/report')
+      .field('name', '긴급거부테스트')
+      .field('phone', '010-1234-5678')
+      .field('address', '서울시 강남구 테스트로 1')
+      .field('location', '천장 누수')
+      .field('occurredAt', '오늘 아침')
+      .field('damageScope', '거실 천장 일부 젖음')
+      .field('urgency', '긴급');
+
+    expect(res.status).toBe(400);
+    expect(res.text).toMatch(/입력값을 다시 확인해주세요[^<]*긴급도/);
+    const count = await prisma.leakReport.count({ where: { name: '긴급거부테스트' } });
     expect(count).toBe(0);
   });
 });

@@ -14,11 +14,10 @@ import {
   UseFilters,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileFieldsInterceptor } from '@nestjs/platform-express';
-import { plainToInstance } from 'class-transformer';
+import { ClassConstructor, plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import type { Response } from 'express';
-import { ReportService } from './report.service';
+import { NewLeakReport, ReportService } from './report.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import {
   FIELD_LABELS,
@@ -26,104 +25,48 @@ import {
   pickFormValues,
   REATTACH_FILES_NOTE,
 } from './report-form.view-model';
-import { UploadErrorFilter } from './upload-error.filter';
-import { isAllowedType, UnsupportedFileTypeException } from './file-types';
+import { UploadErrorFilter, UploadFormViewModel } from './upload-error.filter';
+import { ReportUploadInterceptor, UploadedReportFiles } from './upload-options';
 
-type UploadedReportFiles =
-  | { photos?: Express.Multer.File[]; video?: Express.Multer.File[] }
-  | undefined;
+// 폼마다 다른 것(뷰, 뷰모델, 검증 DTO, 저장 입력으로의 변환)만 모아 두고 제출 처리는 공용으로 쓴다
+interface ReportForm<T extends object> {
+  view: string;
+  viewModel: UploadFormViewModel;
+  dtoClass: ClassConstructor<T>;
+  toReport: (dto: T) => NewLeakReport;
+}
 
-@Controller('report')
+const GENERAL_FORM: ReportForm<CreateReportDto> = {
+  view: 'report/form',
+  viewModel: formViewModel,
+  dtoClass: CreateReportDto,
+  toReport: (dto) => dto,
+};
+
+@Controller()
 export class ReportController {
   private readonly logger = new Logger(ReportController.name);
 
   constructor(private readonly reportService: ReportService) {}
 
-  @Get()
+  @Get('report')
   @Render('report/form')
   showForm() {
     return formViewModel();
   }
 
-  @Post()
-  @UseFilters(UploadErrorFilter)
-  @UseInterceptors(
-    FileFieldsInterceptor(
-      [
-        { name: 'photos', maxCount: 20 },
-        { name: 'video', maxCount: 1 },
-      ],
-      {
-        // storage 미지정 시 multer 기본값인 메모리 저장소를 사용한다
-        limits: {
-          fileSize: 200 * 1024 * 1024,
-          files: 21,
-          fields: 20,
-          parts: 45,
-          fieldSize: 10 * 1024,
-        },
-        // 허용되지 않은 형식은 메모리에 버퍼링하기 전에 거부한다
-        fileFilter: (_req, file, callback) => {
-          const kind = file.fieldname === 'video' ? 'video' : 'photo';
-          if (isAllowedType(file, kind)) {
-            callback(null, true);
-          } else {
-            callback(new UnsupportedFileTypeException(), false);
-          }
-        },
-      },
-    ),
-  )
-  async submit(
+  @Post('report')
+  @UseFilters(new UploadErrorFilter(GENERAL_FORM.view, GENERAL_FORM.viewModel))
+  @UseInterceptors(ReportUploadInterceptor())
+  submit(
     @Body() body: Record<string, string>,
     @UploadedFiles() files: UploadedReportFiles,
     @Res() res: Response,
   ) {
-    const values = pickFormValues(body);
-    const photos = files?.photos ?? [];
-    const video = files?.video?.[0];
-    const withFilesNote = (message: string) =>
-      photos.length > 0 || video ? `${message} ${REATTACH_FILES_NOTE}` : message;
-
-    const dto = plainToInstance(CreateReportDto, values);
-    const errors = await validate(dto);
-    if (errors.length > 0) {
-      const labels = errors.map(
-        (e) => FIELD_LABELS[e.property as keyof typeof FIELD_LABELS] ?? e.property,
-      );
-      return res.status(400).render(
-        'report/form',
-        formViewModel(
-          withFilesNote(`입력값을 다시 확인해주세요: ${labels.join(', ')}`),
-          values,
-        ),
-      );
-    }
-
-    try {
-      const report = await this.reportService.create(dto, { photos, video });
-      return res.redirect(`/report/${report.id}/complete`);
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        return res
-          .status(400)
-          .render('report/form', formViewModel(withFilesNote(error.message), values));
-      }
-      this.logger.error(
-        'Leak report submission failed',
-        error instanceof Error ? error.stack : String(error),
-      );
-      return res.status(500).render(
-        'report/form',
-        formViewModel(
-          withFilesNote('접수 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'),
-          values,
-        ),
-      );
-    }
+    return this.submitForm(GENERAL_FORM, body, files, res);
   }
 
-  @Get(':id/complete')
+  @Get('report/:id/complete')
   @Render('report/complete')
   async showComplete(@Param('id', ParseIntPipe) id: number) {
     const report = await this.reportService.findOne(id);
@@ -139,5 +82,44 @@ export class ReportController {
         status: report.status,
       },
     };
+  }
+
+  private async submitForm<T extends object>(
+    form: ReportForm<T>,
+    body: unknown,
+    files: UploadedReportFiles,
+    res: Response,
+  ) {
+    const values = pickFormValues(body);
+    const photos = files?.photos ?? [];
+    const video = files?.video?.[0];
+    const renderError = (status: number, message: string) => {
+      const withNote =
+        photos.length > 0 || video ? `${message} ${REATTACH_FILES_NOTE}` : message;
+      return res.status(status).render(form.view, form.viewModel(withNote, values));
+    };
+
+    const dto = plainToInstance(form.dtoClass, values);
+    const errors = await validate(dto);
+    if (errors.length > 0) {
+      const labels = errors.map(
+        (e) => FIELD_LABELS[e.property as keyof typeof FIELD_LABELS] ?? e.property,
+      );
+      return renderError(400, `입력값을 다시 확인해주세요: ${labels.join(', ')}`);
+    }
+
+    try {
+      const report = await this.reportService.create(form.toReport(dto), { photos, video });
+      return res.redirect(`/report/${report.id}/complete`);
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        return renderError(400, error.message);
+      }
+      this.logger.error(
+        'Leak report submission failed',
+        error instanceof Error ? error.stack : String(error),
+      );
+      return renderError(500, '접수 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    }
   }
 }
