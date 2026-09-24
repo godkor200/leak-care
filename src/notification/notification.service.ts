@@ -81,14 +81,15 @@ export class NotificationService {
       return;
     }
 
-    if (report.photos.length === 0) {
-      return;
+    if (report.photos.length > 0) {
+      try {
+        await this.slack.uploadToThread(token, channel, threadTs, this.slackFiles(report));
+      } catch (error) {
+        this.logFailure(`Slack photo upload failed for report #${report.id}`, error);
+        return;
+      }
     }
-    try {
-      await this.slack.uploadToThread(token, channel, threadTs, this.slackFiles(report));
-    } catch (error) {
-      this.logFailure(`Slack photo upload failed for report #${report.id}`, error);
-    }
+    this.logger.log(`Slack notified report #${report.id} (${report.photos.length} photos)`);
   }
 
   // 사진을 한 장씩 변환해 넘기므로 변환본은 업로드가 끝나면 바로 버려진다

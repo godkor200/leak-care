@@ -64,6 +64,7 @@ describe('NotificationService', () => {
   beforeEach(() => {
     jest.spyOn(Logger.prototype, 'error').mockImplementation();
     jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    jest.spyOn(Logger.prototype, 'log').mockImplementation();
   });
 
   afterEach(() => {
@@ -191,6 +192,25 @@ describe('NotificationService', () => {
     await expect(service.notifyReportCreated(generalReport)).resolves.toBeUndefined();
 
     expect(Logger.prototype.error).toHaveBeenCalledTimes(1);
+  });
+
+  it('logs a success line with the photo count once the report is fully sent', async () => {
+    const { service } = createService();
+
+    await service.notifyReportCreated({ ...generalReport, photos: [photo, photo] });
+    await service.notifyReportCreated({ ...emergencyReport, photos: [] });
+
+    expect(Logger.prototype.log).toHaveBeenNthCalledWith(1, 'Slack notified report #1 (2 photos)');
+    expect(Logger.prototype.log).toHaveBeenNthCalledWith(2, 'Slack notified report #2 (0 photos)');
+  });
+
+  it('does not log success when the photo upload fails', async () => {
+    const { service, slack } = createService();
+    slack.uploadToThread.mockRejectedValue(new Error('file upload failed'));
+
+    await service.notifyReportCreated(generalReport);
+
+    expect(Logger.prototype.log).not.toHaveBeenCalled();
   });
 
   it('does not upload anything when there are no photos', async () => {

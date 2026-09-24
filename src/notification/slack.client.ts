@@ -53,6 +53,8 @@ export class SlackClient {
         body: new Uint8Array(file.buffer),
         signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
       });
+      // 응답 본문을 읽어야 소켓이 풀려 다음 요청에 재사용된다
+      await response.arrayBuffer();
       if (!response.ok) {
         throw new SlackApiError(`file upload failed: HTTP ${response.status}`);
       }

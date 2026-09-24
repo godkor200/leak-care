@@ -8,6 +8,10 @@ function jsonResponse(body: unknown) {
   return { ok: true, status: 200, json: async () => body };
 }
 
+function rawResponse(ok: boolean, status: number) {
+  return { ok, status, arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(0)) };
+}
+
 describe('SlackClient', () => {
   let fetchMock: jest.Mock;
 
@@ -52,11 +56,11 @@ describe('SlackClient', () => {
       .mockResolvedValueOnce(
         jsonResponse({ ok: true, upload_url: 'https://files.slack.com/u1', file_id: 'F1' }),
       )
-      .mockResolvedValueOnce({ ok: true, status: 200 })
+      .mockResolvedValueOnce(rawResponse(true, 200))
       .mockResolvedValueOnce(
         jsonResponse({ ok: true, upload_url: 'https://files.slack.com/u2', file_id: 'F2' }),
       )
-      .mockResolvedValueOnce({ ok: true, status: 200 })
+      .mockResolvedValueOnce(rawResponse(true, 200))
       .mockResolvedValueOnce(jsonResponse({ ok: true }));
 
     await new SlackClient().uploadToThread(
@@ -96,7 +100,7 @@ describe('SlackClient', () => {
       .mockResolvedValueOnce(
         jsonResponse({ ok: true, upload_url: 'https://files.slack.com/u1', file_id: 'F1' }),
       )
-      .mockResolvedValueOnce({ ok: false, status: 413 });
+      .mockResolvedValueOnce(rawResponse(false, 413));
 
     await expect(
       new SlackClient().uploadToThread(
@@ -112,7 +116,7 @@ describe('SlackClient', () => {
   it('pulls the next file only after the previous one is uploaded', async () => {
     fetchMock.mockImplementation(async (url: string) =>
       url.startsWith('https://files.slack.com')
-        ? { ok: true, status: 200 }
+        ? rawResponse(true, 200)
         : jsonResponse({ ok: true, upload_url: 'https://files.slack.com/u', file_id: 'F' }),
     );
     const fetchCountWhenPulled: number[] = [];
@@ -127,5 +131,62 @@ describe('SlackClient', () => {
 
     expect(fetchCountWhenPulled).toEqual([0, 2]);
     expect(fetchMock).toHaveBeenCalledTimes(5);
+  });
+
+  it('reads the upload response body so the connection is released', async () => {
+    const success = rawResponse(true, 200);
+    const failure = rawResponse(false, 413);
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse({ ok: true, upload_url: 'https://files.slack.com/u1', file_id: 'F1' }),
+      )
+      .mockResolvedValueOnce(success)
+      .mockResolvedValueOnce(jsonResponse({ ok: true }))
+      .mockResolvedValueOnce(
+        jsonResponse({ ok: true, upload_url: 'https://files.slack.com/u2', file_id: 'F2' }),
+      )
+      .mockResolvedValueOnce(failure);
+    const client = new SlackClient();
+    const file = { filename: 'photo-1.jpg', buffer: Buffer.from('a') };
+
+    await client.uploadToThread('xoxb-test', 'C_REPORT', '111.222', filesOf(file));
+    await expect(
+      client.uploadToThread('xoxb-test', 'C_REPORT', '111.222', filesOf(file)),
+    ).rejects.toThrow('file upload failed: HTTP 413');
+
+    expect(success.arrayBuffer).toHaveBeenCalledTimes(1);
+    expect(failure.arrayBuffer).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws SlackApiError when getting an upload URL answers ok: false', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ok: false, error: 'invalid_auth' }));
+
+    await expect(
+      new SlackClient().uploadToThread(
+        'xoxb-test',
+        'C_REPORT',
+        '111.222',
+        filesOf({ filename: 'photo-1.jpg', buffer: Buffer.from('a') }),
+      ),
+    ).rejects.toThrow(new SlackApiError('files.getUploadURLExternal failed: invalid_auth'));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws SlackApiError when completing the upload answers ok: false', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse({ ok: true, upload_url: 'https://files.slack.com/u1', file_id: 'F1' }),
+      )
+      .mockResolvedValueOnce(rawResponse(true, 200))
+      .mockResolvedValueOnce(jsonResponse({ ok: false, error: 'not_in_channel' }));
+
+    await expect(
+      new SlackClient().uploadToThread(
+        'xoxb-test',
+        'C_REPORT',
+        '111.222',
+        filesOf({ filename: 'photo-1.jpg', buffer: Buffer.from('a') }),
+      ),
+    ).rejects.toThrow(new SlackApiError('files.completeUploadExternal failed: not_in_channel'));
   });
 });
