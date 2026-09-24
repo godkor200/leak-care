@@ -22,13 +22,18 @@ export class NotificationService {
     }
 
     try {
-      await fetch(webhookUrl, {
+      const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text: `새 누수 접수 #${report.id}\n이름: ${report.name}\n주소: ${report.address}\n긴급도: ${report.urgency}`,
         }),
       });
+      if (!response.ok) {
+        this.logger.error(
+          `Slack notification failed for report #${report.id}: HTTP ${response.status}`,
+        );
+      }
     } catch (error) {
       this.logger.error(
         `Slack notification failed for report #${report.id}`,

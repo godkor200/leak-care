@@ -43,4 +43,24 @@ describe('NotificationService', () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it('logs an error when Slack responds with a non-2xx status', async () => {
+    const configService = {
+      get: jest.fn().mockReturnValue('https://hooks.slack.com/services/test'),
+    } as any;
+    const fetchMock = jest.fn().mockResolvedValue({ ok: false, status: 404 });
+    global.fetch = fetchMock as any;
+
+    const service = new NotificationService(configService);
+    const errorSpy = jest
+      .spyOn(service['logger'], 'error')
+      .mockImplementation();
+
+    await service.sendLeakReportCreated(report);
+
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    const callArg = errorSpy.mock.calls[0][0];
+    expect(callArg).toContain(`#${report.id}`);
+    expect(callArg).toContain('404');
+  });
 });
