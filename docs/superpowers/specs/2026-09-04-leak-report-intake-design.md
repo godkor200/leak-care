@@ -10,7 +10,7 @@
 
 **포함**
 - 고객이 웹 폼으로 누수 접수 정보(기본정보 + 누수정보 + 사진/동영상)를 제출
-- 제출 시 서버가 파일을 OCI Object Storage에 업로드하고, 접수 정보를 DB에 저장
+- 제출 시 서버가 파일을 AWS S3에 업로드하고, 접수 정보를 DB에 저장
 - 저장 성공 시 Slack 채널에 웹훅으로 알림 전송
 - 접수 완료 확인 페이지(접수번호 표시)
 
@@ -23,8 +23,9 @@
 
 - **Backend**: NestJS
 - **View**: Handlebars(`hbs`) 서버사이드 렌더링 (별도 프론트엔드 프레임워크 없음)
-- **ORM/DB**: Prisma + SQLite (`file:./dev.db`), 오라클 클라우드(OCI) VM에 배포되어 로컬 디스크가 영구 보존되므로 파일 기반 DB로 충분
-- **파일 저장소**: OCI Object Storage (S3 호환 API) — `@aws-sdk/client-s3`로 연동, 버킷/자격증명은 이미 발급되어 있음
+- **ORM/DB**: Prisma + SQLite (`file:./dev.db`), AWS Lightsail 인스턴스에 배포되어 로컬 디스크가 영구 보존되므로 파일 기반 DB로 충분 (백업은 Lightsail 스냅샷)
+- **파일 저장소**: AWS S3 (서울 리전 `ap-northeast-2`) — `@aws-sdk/client-s3`로 연동. Lightsail은 인스턴스 IAM 역할을 지원하지 않으므로 해당 버킷에만 `PutObject` 권한을 가진 IAM 사용자 액세스 키를 사용
+- **배포**: AWS Lightsail (서울 리전) — 고정 월 요금에 트래픽 포함, 소규모 트래픽에 적합
 - **파일 업로드 처리**: `multer` (메모리 스토리지)
 - **알림**: Slack Incoming Webhook — Node `fetch`로 POST
 
@@ -49,7 +50,7 @@ model LeakReportFile {
   id           Int        @id @default(autoincrement())
   leakReportId Int
   leakReport   LeakReport @relation(fields: [leakReportId], references: [id])
-  url          String     // OCI Object Storage URL
+  url          String     // S3 객체 URL
   type         String     // "photo" | "video"
   createdAt    DateTime   @default(now())
 }
@@ -65,8 +66,12 @@ model LeakReportFile {
    - 발생 시점: 자유 텍스트 입력 (예: "어제 밤부터", "오늘 아침")
 2. `POST /report` — multipart form 제출
    1. 필수값 검증: 이름, 연락처, 주소, 발생 장소, 발생 시점, 피해 범위, 긴급도
-   2. 첨부파일 검증: 사진 최대 20장(장당 10MB, jpg/png/heic), 동영상 1개(최대 200MB, mp4/mov)
-   3. 첨부파일을 OCI Object Storage에 업로드
+   2. 첨부파일 검증: 사진 최대 20장(장당 10MB), 동영상 1개(최대 200MB). 아이폰/안드로이드 기본 촬영 형식을 모두 지원한다
+      - 사진: jpg/jpeg, png, heic/heif(아이폰 기본, 일부 삼성), webp(일부 안드로이드)
+      - 동영상: mp4(안드로이드 기본), mov(아이폰 기본), m4v(아이폰 내보내기), 3gp(구형 안드로이드)
+      - 브라우저에 따라 HEIC 파일의 MIME 타입이 비어 있거나 `application/octet-stream`으로 오므로, **확장자 또는 MIME 타입 중 하나라도** 허용 목록에 있으면 통과시킨다
+      - 폼의 `accept`는 `image/*`, `video/*`로 두어 모바일에서 카메라/갤러리 선택이 모두 뜨게 하고, 형식 제한은 서버에서 한다
+   3. 첨부파일을 S3에 업로드
    4. `LeakReport` + `LeakReportFile` 레코드를 DB에 저장
    5. Slack Webhook으로 알림 전송 (접수번호, 이름, 주소, 긴급도 요약)
    6. `GET /report/:id/complete` 로 리다이렉트
@@ -91,7 +96,7 @@ src/
     dto/create-report.dto.ts
   storage/
     storage.module.ts
-    storage.service.ts         # OCI Object Storage(S3 호환) 업로드
+    storage.service.ts         # AWS S3 업로드
   notification/
     notification.module.ts
     notification.service.ts    # Slack Webhook 전송
@@ -114,11 +119,10 @@ public/                        # 정적 CSS
 
 ```
 DATABASE_URL="file:./dev.db"
-OCI_S3_ENDPOINT=
-OCI_S3_REGION=
-OCI_S3_BUCKET=
-OCI_S3_ACCESS_KEY=
-OCI_S3_SECRET_KEY=
+AWS_REGION=ap-northeast-2
+S3_BUCKET=
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
 SLACK_WEBHOOK_URL=
 ```
 

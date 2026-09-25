@@ -2,24 +2,28 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 고객이 웹 폼으로 누수 접수(기본정보 + 누수정보 + 사진/동영상)를 제출하면, 파일이 OCI Object Storage에 업로드되고 접수 정보가 DB에 저장되며, Slack 채널로 알림이 전송되는 NestJS 서버사이드(SSR) 애플리케이션을 구축한다.
+**Goal:** 고객이 웹 폼으로 누수 접수(기본정보 + 누수정보 + 사진/동영상)를 제출하면, 파일이 AWS S3에 업로드되고 접수 정보가 DB에 저장되며, Slack 채널로 알림이 전송되는 NestJS 서버사이드(SSR) 애플리케이션을 구축한다.
 
-**Architecture:** NestJS 모듈형 백엔드 + Handlebars SSR 뷰. `ReportController`가 폼 표시/제출/완료 페이지를 담당하고, `ReportService`가 `StorageService`(OCI Object Storage 업로드)와 `NotificationService`(Slack Webhook)를 오케스트레이션한 뒤 Prisma로 DB에 저장한다.
+**Architecture:** NestJS 모듈형 백엔드 + Handlebars SSR 뷰. `ReportController`가 폼 표시/제출/완료 페이지를 담당하고, `ReportService`가 `StorageService`(S3 업로드)와 `NotificationService`(Slack Webhook)를 오케스트레이션한 뒤 Prisma로 DB에 저장한다.
 
-**Tech Stack:** NestJS 10, Handlebars(`hbs`), Prisma 5 + SQLite, `@aws-sdk/client-s3`(OCI Object Storage용), `multer`(메모리 스토리지), Node 18+ 내장 `fetch`(Slack Webhook), Jest + Supertest.
+**Tech Stack:** NestJS 10, Handlebars(`hbs`), Prisma 5 + SQLite, `@aws-sdk/client-s3`(AWS S3), `multer`(메모리 스토리지), Node 18+ 내장 `fetch`(Slack Webhook), Jest + Supertest.
 
 참조 스펙: `docs/superpowers/specs/2026-09-04-leak-report-intake-design.md`
 
 ## Global Constraints
 
 - 프론트엔드는 별도 프레임워크 없이 NestJS + Handlebars 서버사이드 렌더링만 사용한다.
-- DB는 Prisma + SQLite(`file:./dev.db`)를 사용한다 (오라클 클라우드 VM에 배포, 로컬 디스크 영구 보존).
-- 파일 저장은 OCI Object Storage(S3 호환 API)를 `@aws-sdk/client-s3`로 연동한다.
+- DB는 Prisma + SQLite(`file:./dev.db`)를 사용한다 (AWS Lightsail 인스턴스에 배포, 로컬 디스크 영구 보존).
+- 파일 저장은 AWS S3(서울 리전 `ap-northeast-2`)를 `@aws-sdk/client-s3`로 연동한다. Lightsail은 인스턴스 IAM 역할을 지원하지 않으므로 IAM 사용자 액세스 키를 환경변수로 주입한다.
 - 파일 업로드는 `multer` 메모리 스토리지로 받는다.
 - Slack 알림은 Incoming Webhook에 Node `fetch`로 POST한다. Node 18 이상 필요(전역 `fetch` 사용).
 - 보험 정보(가입 여부/보험사/증권번호) 필드는 이번 범위에서 제외한다.
 - 회원가입/로그인 기능 없음 — 접수는 비로그인으로 받는다.
-- 사진은 최대 20장, 장당 10MB, jpg/png/heic만 허용. 동영상은 1개, 최대 200MB, mp4/mov만 허용.
+- 사진은 최대 20장, 장당 10MB. 동영상은 1개, 최대 200MB. 아이폰/안드로이드 기본 촬영 형식을 모두 지원한다:
+  - 사진 확장자: `.jpg` `.jpeg` `.png` `.heic` `.heif` `.webp` / MIME: `image/jpeg` `image/png` `image/heic` `image/heif` `image/webp`
+  - 동영상 확장자: `.mp4` `.mov` `.m4v` `.3gp` / MIME: `video/mp4` `video/quicktime` `video/x-m4v` `video/3gpp`
+  - 확장자(대소문자 무시) 또는 MIME 타입 중 하나라도 허용 목록에 있으면 통과 (HEIC는 브라우저에 따라 MIME이 `application/octet-stream`으로 옴). 둘 다 아니면 `BadRequestException`.
+  - 폼 `accept`는 `image/*` / `video/*` (모바일 카메라·갤러리 선택 지원), 형식 제한은 서버에서 한다.
 - 파일 업로드가 하나라도 실패하면 전체 제출을 실패 처리하고 DB에 레코드를 남기지 않는다.
 - Slack 알림 전송 실패는 접수 성공 여부에 영향을 주지 않는다 (로그만 남김).
 
@@ -165,11 +169,10 @@ coverage/
 
 ```
 DATABASE_URL="file:./dev.db"
-OCI_S3_ENDPOINT=
-OCI_S3_REGION=
-OCI_S3_BUCKET=
-OCI_S3_ACCESS_KEY=
-OCI_S3_SECRET_KEY=
+AWS_REGION=ap-northeast-2
+S3_BUCKET=
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
 SLACK_WEBHOOK_URL=
 ```
 
@@ -470,7 +473,7 @@ git commit -m "feat: add Prisma schema and PrismaService"
 
 ---
 
-### Task 3: StorageService (OCI Object Storage 업로드)
+### Task 3: StorageService (S3 업로드)
 
 **Files:**
 - Create: `src/storage/storage.service.ts`
@@ -478,7 +481,7 @@ git commit -m "feat: add Prisma schema and PrismaService"
 - Test: `src/storage/storage.service.spec.ts`
 
 **Interfaces:**
-- Consumes: `ConfigService`(`@nestjs/config`)의 `getOrThrow<string>(key)` — `OCI_S3_ENDPOINT`, `OCI_S3_REGION`, `OCI_S3_BUCKET`, `OCI_S3_ACCESS_KEY`, `OCI_S3_SECRET_KEY`
+- Consumes: `ConfigService`(`@nestjs/config`)의 `getOrThrow<string>(key)` — `AWS_REGION`, `S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
 - Produces: `StorageService.uploadFile(key: string, body: Buffer, contentType: string): Promise<string>` — 업로드된 객체의 URL을 반환. `StorageModule`(`StorageService` export)
 
 - [ ] **Step 1: 실패하는 테스트 작성**
@@ -501,11 +504,10 @@ describe('StorageService', () => {
   const configService = {
     getOrThrow: jest.fn((key: string) => {
       const values: Record<string, string> = {
-        OCI_S3_ENDPOINT: 'https://test.compat.objectstorage.oraclecloud.com',
-        OCI_S3_BUCKET: 'leak-care-bucket',
-        OCI_S3_REGION: 'ap-chuncheon-1',
-        OCI_S3_ACCESS_KEY: 'test-access-key',
-        OCI_S3_SECRET_KEY: 'test-secret-key',
+        AWS_REGION: 'ap-northeast-2',
+        S3_BUCKET: 'leak-care-bucket',
+        AWS_ACCESS_KEY_ID: 'test-access-key',
+        AWS_SECRET_ACCESS_KEY: 'test-secret-key',
       };
       return values[key];
     }),
@@ -525,7 +527,7 @@ describe('StorageService', () => {
 
     expect(sendMock).toHaveBeenCalledTimes(1);
     expect(url).toBe(
-      'https://test.compat.objectstorage.oraclecloud.com/leak-care-bucket/leak-reports/test.jpg',
+      'https://leak-care-bucket.s3.ap-northeast-2.amazonaws.com/leak-reports/test.jpg',
     );
   });
 });
@@ -547,19 +549,17 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 export class StorageService {
   private readonly client: S3Client;
   private readonly bucket: string;
-  private readonly endpoint: string;
+  private readonly region: string;
 
   constructor(private readonly config: ConfigService) {
-    this.endpoint = this.config.getOrThrow<string>('OCI_S3_ENDPOINT');
-    this.bucket = this.config.getOrThrow<string>('OCI_S3_BUCKET');
+    this.region = this.config.getOrThrow<string>('AWS_REGION');
+    this.bucket = this.config.getOrThrow<string>('S3_BUCKET');
     this.client = new S3Client({
-      region: this.config.getOrThrow<string>('OCI_S3_REGION'),
-      endpoint: this.endpoint,
+      region: this.region,
       credentials: {
-        accessKeyId: this.config.getOrThrow<string>('OCI_S3_ACCESS_KEY'),
-        secretAccessKey: this.config.getOrThrow<string>('OCI_S3_SECRET_KEY'),
+        accessKeyId: this.config.getOrThrow<string>('AWS_ACCESS_KEY_ID'),
+        secretAccessKey: this.config.getOrThrow<string>('AWS_SECRET_ACCESS_KEY'),
       },
-      forcePathStyle: true,
     });
   }
 
@@ -576,7 +576,7 @@ export class StorageService {
         ContentType: contentType,
       }),
     );
-    return `${this.endpoint}/${this.bucket}/${key}`;
+    return `https://${this.bucket}.s3.${this.region}.amazonaws.com/${key}`;
   }
 }
 ```
@@ -603,7 +603,7 @@ export class StorageModule {}
 
 ```bash
 git add src/storage/
-git commit -m "feat: add StorageService for OCI Object Storage uploads"
+git commit -m "feat: add StorageService for S3 uploads"
 ```
 
 ---
@@ -962,6 +962,53 @@ describe('ReportService', () => {
     expect(prisma.leakReport.create).not.toHaveBeenCalled();
   });
 
+  it('accepts an iPhone HEIC photo even when the browser sends a generic MIME type', async () => {
+    const { service, storage } = createService();
+    const heicPhoto = {
+      ...photo,
+      originalname: 'IMG_0001.HEIC',
+      mimetype: 'application/octet-stream',
+    };
+
+    await service.create(dto, { photos: [heicPhoto] });
+
+    expect(storage.uploadFile).toHaveBeenCalledTimes(1);
+  });
+
+  it('accepts an Android mp4 video and an iPhone mov video', async () => {
+    const androidVideo = {
+      ...photo,
+      originalname: 'VID_20260901_120000.mp4',
+      mimetype: 'video/mp4',
+    };
+    const iphoneVideo = {
+      ...photo,
+      originalname: 'IMG_0002.MOV',
+      mimetype: 'video/quicktime',
+    };
+
+    for (const video of [androidVideo, iphoneVideo]) {
+      const { service, storage } = createService();
+      await service.create(dto, { photos: [], video });
+      expect(storage.uploadFile).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it('rejects a file with an unsupported type without saving anything', async () => {
+    const { service, prisma, storage } = createService();
+    const pdf = {
+      ...photo,
+      originalname: 'document.pdf',
+      mimetype: 'application/pdf',
+    };
+
+    await expect(service.create(dto, { photos: [pdf] })).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(storage.uploadFile).not.toHaveBeenCalled();
+    expect(prisma.leakReport.create).not.toHaveBeenCalled();
+  });
+
   it('does not save the report when file upload fails', async () => {
     const { service, prisma, storage } = createService();
     storage.uploadFile.mockRejectedValue(new Error('upload failed'));
@@ -984,6 +1031,7 @@ Expected: FAIL — `Cannot find module './report.service'`
 ```ts
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import { extname } from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { NotificationService } from '../notification/notification.service';
@@ -997,6 +1045,33 @@ export interface ReportFiles {
 const MAX_PHOTO_SIZE = 10 * 1024 * 1024;
 const MAX_VIDEO_SIZE = 200 * 1024 * 1024;
 
+// 아이폰(heic/heif, mov/m4v)과 안드로이드(jpg/webp, mp4/3gp) 기본 촬영 형식
+const PHOTO_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp'];
+const PHOTO_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/heic',
+  'image/heif',
+  'image/webp',
+];
+const VIDEO_EXTENSIONS = ['.mp4', '.mov', '.m4v', '.3gp'];
+const VIDEO_MIME_TYPES = [
+  'video/mp4',
+  'video/quicktime',
+  'video/x-m4v',
+  'video/3gpp',
+];
+
+// HEIC는 브라우저에 따라 MIME이 application/octet-stream으로 오므로 확장자도 함께 본다
+function isAllowedType(
+  file: Express.Multer.File,
+  extensions: string[],
+  mimeTypes: string[],
+): boolean {
+  const extension = extname(file.originalname).toLowerCase();
+  return extensions.includes(extension) || mimeTypes.includes(file.mimetype);
+}
+
 @Injectable()
 export class ReportService {
   constructor(
@@ -1007,16 +1082,28 @@ export class ReportService {
 
   async create(dto: CreateReportDto, files: ReportFiles) {
     for (const photo of files.photos) {
+      if (!isAllowedType(photo, PHOTO_EXTENSIONS, PHOTO_MIME_TYPES)) {
+        throw new BadRequestException(
+          `지원하지 않는 사진 형식입니다: ${photo.originalname}`,
+        );
+      }
       if (photo.size > MAX_PHOTO_SIZE) {
         throw new BadRequestException(
           `사진 파일이 너무 큽니다: ${photo.originalname}`,
         );
       }
     }
-    if (files.video && files.video.size > MAX_VIDEO_SIZE) {
-      throw new BadRequestException(
-        `동영상 파일이 너무 큽니다: ${files.video.originalname}`,
-      );
+    if (files.video) {
+      if (!isAllowedType(files.video, VIDEO_EXTENSIONS, VIDEO_MIME_TYPES)) {
+        throw new BadRequestException(
+          `지원하지 않는 동영상 형식입니다: ${files.video.originalname}`,
+        );
+      }
+      if (files.video.size > MAX_VIDEO_SIZE) {
+        throw new BadRequestException(
+          `동영상 파일이 너무 큽니다: ${files.video.originalname}`,
+        );
+      }
     }
 
     const uploaded: { url: string; type: 'photo' | 'video' }[] = [];
@@ -1071,7 +1158,7 @@ export class ReportService {
 - [ ] **Step 4: 테스트 통과 확인**
 
 Run: `npm test -- report.service.spec.ts`
-Expected: PASS — 3개 테스트 모두 통과
+Expected: PASS — 6개 테스트 모두 통과
 
 - [ ] **Step 5: 커밋**
 
@@ -1222,10 +1309,10 @@ Expected: FAIL — `POST /report` returns 404 (라우트 없음)
     <fieldset>
       <legend>파일 첨부</legend>
       <label>사진 (최대 20장)
-        <input type="file" name="photos" accept="image/jpeg,image/png,image/heic" multiple />
+        <input type="file" name="photos" accept="image/*" multiple />
       </label>
       <label>동영상
-        <input type="file" name="video" accept="video/mp4,video/quicktime" />
+        <input type="file" name="video" accept="video/*" />
       </label>
     </fieldset>
     <button type="submit">접수 완료</button>
@@ -1439,10 +1526,10 @@ git commit -m "feat: add leak report intake form, views, and end-to-end flow"
 
 ## 수동 확인 (배포 전)
 
-자동 테스트는 모두 OCI/Slack을 모킹한다. 실제 서비스 배포 전 아래를 수동으로 확인한다:
+자동 테스트는 모두 S3/Slack을 모킹한다. 실제 서비스 배포 전 아래를 수동으로 확인한다:
 
-1. `.env`에 실제 `OCI_S3_*` 값과 `SLACK_WEBHOOK_URL`을 채운다.
+1. `.env`에 실제 `AWS_REGION`/`S3_BUCKET`/`AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` 값과 `SLACK_WEBHOOK_URL`을 채운다.
 2. `npm run start:dev`로 서버 실행 후 브라우저에서 `http://localhost:3000/report` 접속.
-3. 폼 제출 → 실제 OCI Object Storage 버킷에 파일이 업로드되는지 확인.
+3. 폼 제출 → 실제 S3 버킷에 파일이 업로드되는지 확인.
 4. Slack 채널에 접수 알림 메시지가 도착하는지 확인.
 5. 접수 완료 페이지에 접수번호가 정상적으로 표시되는지 확인.
