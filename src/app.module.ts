@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
+import { HomeModule } from './home/home.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ReportModule } from './report/report.module';
 
@@ -9,6 +10,7 @@ import { ReportModule } from './report/report.module';
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     ReportModule,
+    HomeModule,
   ],
   controllers: [AppController],
 })
