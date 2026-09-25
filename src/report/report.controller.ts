@@ -37,7 +37,7 @@ interface ReportForm<T extends object> {
   viewModel: UploadFormViewModel;
   dtoClass: ClassConstructor<T>;
   toReport: (dto: T) => NewLeakReport;
-  // 장난 접수를 막기 위해 긴급 출동은 현장 사진을 1장 이상 요구한다
+  // 장난 접수를 막고 상담 전에 현장을 확인할 수 있도록 현장 사진을 1장 이상 요구한다
   requirePhoto?: boolean;
 }
 
@@ -55,6 +55,7 @@ const GENERAL_FORM: ReportForm<CreateReportDto> = {
     damageScope,
     urgency,
   }),
+  requirePhoto: true,
 };
 
 const EMERGENCY_FORM: ReportForm<CreateEmergencyReportDto> = {

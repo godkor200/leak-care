@@ -76,6 +76,32 @@ describe('Report (e2e)', () => {
     expect(completeRes.text).not.toContain('010-1234-5678');
   });
 
+  it('POST /report without a photo is rejected, keeps the input, and saves nothing', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/report')
+      .field('name', '일반사진없음테스트')
+      .field('phone', '010-1234-5678')
+      .field('address', '서울시 강남구 테스트로 1')
+      .field('location', '천장 누수')
+      .field('occurredAt', '오늘 아침')
+      .field('damageScope', '거실 천장 일부 젖음')
+      .field('urgency', '보통');
+
+    expect(res.status).toBe(400);
+    expect(res.text).toContain('현장 사진을 1장 이상 올려주세요.');
+    expect(res.text).toContain('value="일반사진없음테스트"');
+    expect(res.text).toMatch(/name="location" value="천장 누수" checked/);
+    const count = await prisma.leakReport.count({ where: { name: '일반사진없음테스트' } });
+    expect(count).toBe(0);
+  });
+
+  it('GET /report marks the photo upload as required', async () => {
+    const res = await request(app.getHttpServer()).get('/report');
+
+    expect(res.text).toMatch(/<input type="file" name="photos"[^>]* required/);
+    expect(res.text).toContain('1장 이상 · 최대 20장 · 장당 10MB');
+  });
+
   it('POST /report with more than 20 photos returns 400 with a Korean error message', async () => {
     let req = request(app.getHttpServer())
       .post('/report')

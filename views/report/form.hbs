@@ -75,13 +75,13 @@
         <section class="form-card">
           <h2 class="form-card-title"><span class="form-card-num">3</span>사진 · 동영상</h2>
           <div class="field">
-            <span class="field-label" id="photos-label">사진 <span class="optional">선택</span></span>
+            <span class="field-label" id="photos-label">사진 <span class="required">필수</span></span>
             <label class="upload">
-              <input type="file" name="photos" accept="image/*" multiple data-kind="photo" data-max-count="20" data-max-size="10485760" aria-labelledby="photos-label" aria-describedby="photos-hint" />
+              <input type="file" name="photos" accept="image/*" multiple required data-kind="photo" data-min-count="1" data-max-count="20" data-max-size="10485760" aria-labelledby="photos-label" aria-describedby="photos-hint" />
               <span class="upload-icon" aria-hidden="true">+</span>
               <span class="upload-text">
                 <strong class="upload-title" data-default="사진 선택하기" data-again="사진 다시 선택하기">사진 선택하기</strong>
-                <span class="upload-hint" id="photos-hint">최대 20장 · 장당 10MB</span>
+                <span class="upload-hint" id="photos-hint">1장 이상 · 최대 20장 · 장당 10MB</span>
               </span>
             </label>
             <p class="upload-summary" aria-live="polite" hidden></p>
