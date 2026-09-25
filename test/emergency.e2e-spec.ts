@@ -1,11 +1,11 @@
 import { Test } from '@nestjs/testing';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { join } from 'path';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { StorageService } from '../src/storage/storage.service';
 import { NotificationService } from '../src/notification/notification.service';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { configureViews } from '../src/view-setup';
 
 describe('Emergency (e2e)', () => {
   let app: NestExpressApplication;
@@ -30,9 +30,7 @@ describe('Emergency (e2e)', () => {
       .compile();
 
     app = moduleRef.createNestApplication<NestExpressApplication>();
-    app.useStaticAssets(join(process.cwd(), 'public'));
-    app.setBaseViewsDir(join(process.cwd(), 'views'));
-    app.setViewEngine('hbs');
+    configureViews(app);
     await app.init();
 
     prisma = app.get(PrismaService);

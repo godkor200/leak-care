@@ -1,13 +1,11 @@
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { join } from 'path';
 import { AppModule } from './app.module';
+import { configureViews } from './view-setup';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  app.useStaticAssets(join(process.cwd(), 'public'));
-  app.setBaseViewsDir(join(process.cwd(), 'views'));
-  app.setViewEngine('hbs');
+  configureViews(app);
 
   // 모바일 회선에서 200MB 동영상 업로드가 끝날 때까지 요청을 끊지 않는다
   const server = app.getHttpServer();
