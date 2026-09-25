@@ -119,7 +119,7 @@ describe('Report (e2e)', () => {
     expect(res.text).toContain('첨부 파일은 다시 선택해주세요.');
     expect(res.text).not.toContain('첨부 파일 개수를 확인해주세요');
     expect(res.text).toContain('value="형식거부테스트"');
-    expect(res.text).toMatch(/<option value="보통" selected>/);
+    expect(res.text).toMatch(/name="urgency" value="보통" checked/);
     expect(storageServiceMock.uploadFile).not.toHaveBeenCalled();
   });
 
@@ -139,7 +139,7 @@ describe('Report (e2e)', () => {
     expect(res.text).toMatch(/입력값을 다시 확인해주세요[^<]*이름, 연락처/);
     expect(res.text).not.toContain('첨부 파일은 다시 선택해주세요.');
     expect(res.text).toContain('value="서울시 강남구 테스트로 1"');
-    expect(res.text).toMatch(/<option value="욕실 누수" selected>/);
+    expect(res.text).toMatch(/name="location" value="욕실 누수" checked/);
   });
 
   it('POST /report without multipart body shows a validation error instead of crashing', async () => {
@@ -181,8 +181,8 @@ describe('Report (e2e)', () => {
 
     expect(res.status).toBe(200);
     expect(res.text).toContain('href="/emergency"');
-    expect(res.text).toContain('<option value="보통"');
-    expect(res.text).not.toContain('<option value="긴급"');
+    expect(res.text).toContain('name="urgency" value="보통"');
+    expect(res.text).not.toContain('value="긴급"');
   });
 
   it('POST /report with urgency 긴급 is rejected and nothing is saved', async () => {

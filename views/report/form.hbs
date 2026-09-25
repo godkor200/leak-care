@@ -1,62 +1,118 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>누수 접수 - LeakCare</title>
-  <link rel="stylesheet" href="/styles.css" />
+  {{> head title="누수 점검 접수"}}
 </head>
 <body>
-  <h1>누수 접수</h1>
-  <a class="emergency-link" href="/emergency">🚨 지금 물이 새고 있나요? 긴급 출동 요청</a>
-  {{#if error}}
-    <p class="error">{{error}}</p>
-  {{/if}}
-  <form id="report-form" action="/report" method="post" enctype="multipart/form-data">
-    <fieldset>
-      <legend>기본 정보</legend>
-      <label>이름 <input type="text" name="name" value="{{values.name}}" autocomplete="name" maxlength="50" required /></label>
-      <label>연락처 <input type="tel" name="phone" value="{{values.phone}}" inputmode="tel" autocomplete="tel" maxlength="20" required /></label>
-      <label>주소 <input type="text" name="address" value="{{values.address}}" autocomplete="street-address" maxlength="200" required /></label>
-    </fieldset>
-    <fieldset>
-      <legend>누수 정보</legend>
-      <label>발생 장소
-        <select name="location" required>
-          {{#each locations}}
-            <option value="{{value}}"{{#if selected}} selected{{/if}}>{{value}}</option>
-          {{/each}}
-        </select>
-      </label>
-      <label>발생 시점 <input type="text" name="occurredAt" value="{{values.occurredAt}}" maxlength="100" required /></label>
-      <label>피해 범위 <input type="text" name="damageScope" value="{{values.damageScope}}" maxlength="500" required /></label>
-      <label>긴급도
-        <select name="urgency" required>
-          {{#each urgencies}}
-            <option value="{{value}}"{{#if selected}} selected{{/if}}>{{value}}</option>
-          {{/each}}
-        </select>
-      </label>
-    </fieldset>
-    <fieldset>
-      <legend>파일 첨부</legend>
-      <label>사진
-        <input type="file" name="photos" accept="image/*" multiple />
-      </label>
-      <p class="help">최대 20장, 장당 10MB</p>
-      <label>동영상
-        <input type="file" name="video" accept="video/*" />
-      </label>
-      <p class="help">1분 이내 영상, 최대 200MB</p>
-    </fieldset>
-    <button type="submit" id="submit-button">접수 완료</button>
-  </form>
-  <script>
-    document.getElementById('report-form').addEventListener('submit', function () {
-      var button = document.getElementById('submit-button');
-      button.disabled = true;
-      button.textContent = '업로드 중…';
-    });
-  </script>
+  {{> header}}
+
+  <main class="page">
+    <div class="container narrow">
+      <div class="page-head">
+        <p class="section-eyebrow">일반 접수</p>
+        <h1 class="page-title">누수 점검 접수</h1>
+        <p class="page-lead">누수 흔적이 보이면 아래 내용을 남겨주세요. 확인 후 담당자가 연락드립니다.</p>
+      </div>
+
+      <a class="urgent-banner" href="/emergency">
+        <span class="urgent-banner-text"><strong>지금 물이 새고 있나요?</strong> 긴급 출동으로 요청하면 더 빨라요.</span>
+        <span class="urgent-banner-cta">긴급 출동 요청 <span aria-hidden="true">→</span></span>
+      </a>
+
+      {{#if error}}
+        <div class="error-box" id="form-error" role="alert" tabindex="-1">
+          <strong>접수되지 않았어요</strong>
+          <p>{{error}}</p>
+        </div>
+      {{/if}}
+
+      <form id="report-form" class="report-form" action="/report" method="post" enctype="multipart/form-data">
+        <section class="form-card">
+          <h2 class="form-card-title"><span class="form-card-num">1</span>연락처</h2>
+          <div class="field">
+            <label for="name">이름</label>
+            <input id="name" type="text" name="name" value="{{values.name}}" autocomplete="name" maxlength="50" required />
+          </div>
+          <div class="field">
+            <label for="phone">연락처</label>
+            <input id="phone" type="tel" name="phone" value="{{values.phone}}" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="010-0000-0000" required />
+          </div>
+          <div class="field">
+            <label for="address">주소</label>
+            <input id="address" type="text" name="address" value="{{values.address}}" autocomplete="street-address" maxlength="200" placeholder="동 · 호수까지 적어주세요" required />
+          </div>
+        </section>
+
+        <section class="form-card">
+          <h2 class="form-card-title"><span class="form-card-num">2</span>누수 상황</h2>
+          <fieldset class="field">
+            <legend>발생 장소</legend>
+            <div class="chips">
+              {{#each locations}}
+                <label class="chip"><input type="radio" name="location" value="{{value}}"{{#if selected}} checked{{/if}} required /><span>{{value}}</span></label>
+              {{/each}}
+            </div>
+          </fieldset>
+          <div class="field">
+            <label for="occurredAt">발생 시점</label>
+            <input id="occurredAt" type="text" name="occurredAt" value="{{values.occurredAt}}" maxlength="100" placeholder="예: 오늘 아침, 3일 전부터" required />
+          </div>
+          <div class="field">
+            <label for="damageScope">피해 범위</label>
+            <input id="damageScope" type="text" name="damageScope" value="{{values.damageScope}}" maxlength="500" placeholder="예: 거실 천장 일부가 젖었어요" required />
+          </div>
+          <fieldset class="field">
+            <legend>긴급도</legend>
+            <div class="segmented">
+              {{#each urgencies}}
+                <label class="segment"><input type="radio" name="urgency" value="{{value}}"{{#if selected}} checked{{/if}} required /><span>{{value}}</span></label>
+              {{/each}}
+            </div>
+            <p class="hint">물이 계속 새고 있다면 <a href="/emergency">긴급 출동</a>으로 요청해주세요.</p>
+          </fieldset>
+        </section>
+
+        <section class="form-card">
+          <h2 class="form-card-title"><span class="form-card-num">3</span>사진 · 동영상</h2>
+          <div class="field">
+            <span class="field-label" id="photos-label">사진 <span class="optional">선택</span></span>
+            <label class="upload">
+              <input type="file" name="photos" accept="image/*" multiple data-kind="photo" data-max-count="20" data-max-size="10485760" aria-labelledby="photos-label" aria-describedby="photos-hint" />
+              <span class="upload-icon" aria-hidden="true">+</span>
+              <span class="upload-text">
+                <strong class="upload-title" data-default="사진 선택하기" data-again="사진 다시 선택하기">사진 선택하기</strong>
+                <span class="upload-hint" id="photos-hint">최대 20장 · 장당 10MB</span>
+              </span>
+            </label>
+            <p class="upload-summary" aria-live="polite" hidden></p>
+            <p class="upload-error" role="alert" hidden></p>
+            <ul class="thumbs" hidden></ul>
+          </div>
+          <div class="field">
+            <span class="field-label" id="video-label">동영상 <span class="optional">선택</span></span>
+            <label class="upload">
+              <input type="file" name="video" accept="video/*" data-kind="video" data-max-count="1" data-max-size="209715200" aria-labelledby="video-label" aria-describedby="video-hint" />
+              <span class="upload-icon" aria-hidden="true">▶</span>
+              <span class="upload-text">
+                <strong class="upload-title" data-default="동영상 선택하기" data-again="동영상 다시 선택하기">동영상 선택하기</strong>
+                <span class="upload-hint" id="video-hint">1분 이내 · 최대 200MB</span>
+              </span>
+            </label>
+            <p class="upload-summary" aria-live="polite" hidden></p>
+            <p class="upload-error" role="alert" hidden></p>
+            <ul class="thumbs" hidden></ul>
+          </div>
+        </section>
+
+        <div class="submit-area">
+          <button type="submit" id="submit-button" class="btn btn-primary btn-lg btn-block">접수 완료</button>
+          <p class="submit-status" aria-live="polite" hidden>사진이 많으면 1~2분 걸릴 수 있어요. 창을 닫지 말고 기다려주세요.</p>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  {{> footer}}
+  <script src="/app.js" defer></script>
 </body>
 </html>

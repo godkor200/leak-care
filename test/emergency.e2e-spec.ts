@@ -51,7 +51,7 @@ describe('Emergency (e2e)', () => {
     expect(res.text).toContain('긴급 출동 요청');
     expect(res.text).toContain('action="/emergency"');
     expect(res.text).toContain('name="description"');
-    expect(res.text).toContain('<option value="">선택 안 함</option>');
+    expect(res.text).toMatch(/name="location" value="" checked[^>]*><span>선택 안 함<\/span>/);
     expect(res.text).not.toContain('name="urgency"');
   });
 
