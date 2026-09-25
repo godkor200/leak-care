@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="누수응급센터">
+  <rect width="64" height="64" fill="#ec3013"/>
+  <path d="M11 30 L32 12 L53 30 V53 H11 Z" fill="none" stroke="#fff" stroke-width="4" stroke-linejoin="miter"/>
+  <path d="M42 20 V13 H47 V25" fill="none" stroke="#fff" stroke-width="4" stroke-linejoin="miter"/>
+  <path d="M32 24.5 C32 24.5 35.7 31.5 38.1 35.9 A8 8 0 1 1 25.9 35.9 C28.3 31.5 32 24.5 32 24.5 Z" fill="#fff"/>
+</svg>
