@@ -10,6 +10,7 @@ describe('ReportService', () => {
     occurredAt: '오늘 아침',
     damageScope: '거실 천장 일부 젖음',
     urgency: '보통',
+    privacyConsentedAt: new Date('2026-09-25T00:00:00Z'),
   } as any;
 
   const photo = {
@@ -42,6 +43,9 @@ describe('ReportService', () => {
 
     expect(storage.uploadFile).toHaveBeenCalledTimes(1);
     expect(prisma.leakReport.create).toHaveBeenCalledTimes(1);
+    expect(prisma.leakReport.create.mock.calls[0][0].data.privacyConsentedAt).toEqual(
+      new Date('2026-09-25T00:00:00Z'),
+    );
     expect(notification.notifyReportCreated).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 1,
@@ -220,6 +224,7 @@ describe('ReportService', () => {
       address: '서울시 강남구 테스트로 1',
       urgency: '긴급',
       description: '천장에서 물이 떨어지고 있어요',
+      privacyConsentedAt: new Date('2026-09-25T00:00:00Z'),
     } as any;
     prisma.leakReport.create.mockResolvedValue({
       id: 7,

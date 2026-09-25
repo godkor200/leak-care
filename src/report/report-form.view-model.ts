@@ -9,6 +9,7 @@ const TEXT_FIELDS = [
   'damageScope',
   'urgency',
   'description',
+  'privacyConsent',
 ] as const;
 
 type FormField = (typeof TEXT_FIELDS)[number];
@@ -23,6 +24,7 @@ export const FIELD_LABELS: Record<FormField, string> = {
   damageScope: '피해 범위',
   urgency: '긴급도',
   description: '상황 설명',
+  privacyConsent: '개인정보 수집·이용 동의',
 };
 
 export const REATTACH_FILES_NOTE = '첨부 파일은 다시 선택해주세요.';
@@ -46,10 +48,16 @@ function options(all: readonly string[], selected?: string) {
   return all.map((value) => ({ value, selected: value === selected }));
 }
 
+// 다시 그릴 때 동의 체크 상태를 유지한다 (템플릿에 비교 헬퍼를 두지 않으려고 불리언으로 넘긴다)
+function isConsentChecked(values: FormValues) {
+  return values.privacyConsent === 'agree';
+}
+
 export function formViewModel(error?: string, values: FormValues = {}) {
   return {
     locations: options(Object.values(LeakLocation), values.location),
     urgencies: options(GENERAL_URGENCY_LEVELS, values.urgency),
+    consentChecked: isConsentChecked(values),
     values,
     error,
   };
@@ -58,6 +66,7 @@ export function formViewModel(error?: string, values: FormValues = {}) {
 export function emergencyFormViewModel(error?: string, values: FormValues = {}) {
   return {
     locations: options(Object.values(LeakLocation), values.location),
+    consentChecked: isConsentChecked(values),
     values,
     error,
   };

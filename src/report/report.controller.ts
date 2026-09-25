@@ -46,6 +46,7 @@ const GENERAL_FORM: ReportForm<CreateReportDto> = {
   viewModel: formViewModel,
   dtoClass: CreateReportDto,
   // DTO에 선언되지 않은 필드도 plainToInstance가 남기므로 검증한 필드만 골라 저장한다
+  // 검증을 통과한 뒤에만 호출되므로 이 시점은 동의(privacyConsent = agree)가 확인된 시각이다
   toReport: ({ name, phone, address, location, occurredAt, damageScope, urgency }) => ({
     name,
     phone,
@@ -54,6 +55,7 @@ const GENERAL_FORM: ReportForm<CreateReportDto> = {
     occurredAt,
     damageScope,
     urgency,
+    privacyConsentedAt: new Date(),
   }),
   requirePhoto: true,
 };
@@ -69,6 +71,7 @@ const EMERGENCY_FORM: ReportForm<CreateEmergencyReportDto> = {
     location,
     description,
     urgency: UrgencyLevel.HIGH,
+    privacyConsentedAt: new Date(),
   }),
   requirePhoto: true,
 };

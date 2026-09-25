@@ -7,9 +7,10 @@ describe('CreateEmergencyReportDto', () => {
     name: '홍길동',
     phone: '010-1234-5678',
     address: '서울시 강남구 테스트로 1',
+    privacyConsent: 'agree',
   };
 
-  it('passes with only name, phone and address', async () => {
+  it('passes with only name, phone, address and privacy consent', async () => {
     const dto = plainToInstance(CreateEmergencyReportDto, minimalPayload);
     const errors = await validate(dto);
     expect(errors).toHaveLength(0);
@@ -65,5 +66,20 @@ describe('CreateEmergencyReportDto', () => {
     const errors = await validate(dto);
     const properties = errors.map((e) => e.property);
     expect(properties).toEqual(expect.arrayContaining(['name', 'phone']));
+  });
+
+  it('fails validation when privacy consent is missing', async () => {
+    const { privacyConsent, ...withoutConsent } = minimalPayload;
+    const dto = plainToInstance(CreateEmergencyReportDto, withoutConsent);
+    const errors = await validate(dto);
+    expect(errors.map((e) => e.property)).toEqual(['privacyConsent']);
+  });
+
+  it('fails validation when privacy consent is anything other than "agree"', async () => {
+    for (const privacyConsent of ['', 'on', 'disagree']) {
+      const dto = plainToInstance(CreateEmergencyReportDto, { ...minimalPayload, privacyConsent });
+      const errors = await validate(dto);
+      expect(errors.map((e) => e.property)).toEqual(['privacyConsent']);
+    }
   });
 });

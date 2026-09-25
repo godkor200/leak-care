@@ -12,6 +12,8 @@ export interface NewLeakReport {
   phone: string;
   address: string;
   urgency: UrgencyLevel;
+  // 개인정보 수집·이용 동의 시각 (동의 증빙용)
+  privacyConsentedAt: Date;
   location?: LeakLocation;
   occurredAt?: string;
   damageScope?: string;
@@ -81,6 +83,7 @@ export class ReportService {
         damageScope: input.damageScope,
         description: input.description,
         urgency: input.urgency,
+        privacyConsentedAt: input.privacyConsentedAt,
         files: { create: uploaded },
       },
       include: { files: true },

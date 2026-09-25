@@ -11,6 +11,7 @@ describe('CreateReportDto', () => {
     occurredAt: '오늘 아침',
     damageScope: '거실 천장 일부 젖음',
     urgency: '보통',
+    privacyConsent: 'agree',
   };
 
   it('passes validation with valid data', async () => {
@@ -86,5 +87,20 @@ describe('CreateReportDto', () => {
     });
     const errors = await validate(dto);
     expect(errors.some((e) => e.property === 'urgency')).toBe(true);
+  });
+
+  it('fails validation when privacy consent is missing', async () => {
+    const { privacyConsent, ...withoutConsent } = validPayload;
+    const dto = plainToInstance(CreateReportDto, withoutConsent);
+    const errors = await validate(dto);
+    expect(errors.map((e) => e.property)).toEqual(['privacyConsent']);
+  });
+
+  it('fails validation when privacy consent is anything other than "agree"', async () => {
+    for (const privacyConsent of ['', 'on', 'true', 'disagree']) {
+      const dto = plainToInstance(CreateReportDto, { ...validPayload, privacyConsent });
+      const errors = await validate(dto);
+      expect(errors.map((e) => e.property)).toEqual(['privacyConsent']);
+    }
   });
 });

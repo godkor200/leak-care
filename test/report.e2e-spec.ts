@@ -54,6 +54,7 @@ describe('Report (e2e)', () => {
       .field('occurredAt', '오늘 아침')
       .field('damageScope', '거실 천장 일부 젖음')
       .field('urgency', '보통')
+      .field('privacyConsent', 'agree')
       // 일반 폼에 없는 description은 검증 대상이 아니므로 저장되면 안 된다
       .field('description', '끼워넣은 상황 설명')
       .attach('photos', Buffer.from('fake-image'), 'photo1.jpg');
@@ -65,6 +66,7 @@ describe('Report (e2e)', () => {
     const saved = await prisma.leakReport.findUnique({ where: { id: createdId } });
     expect(saved?.name).toBe('홍길동');
     expect(saved?.description).toBeNull();
+    expect(saved?.privacyConsentedAt).toBeInstanceOf(Date);
 
     const completeRes = await request(app.getHttpServer()).get(res.headers.location);
     expect(completeRes.status).toBe(200);
@@ -85,14 +87,45 @@ describe('Report (e2e)', () => {
       .field('location', '천장 누수')
       .field('occurredAt', '오늘 아침')
       .field('damageScope', '거실 천장 일부 젖음')
-      .field('urgency', '보통');
+      .field('urgency', '보통')
+      .field('privacyConsent', 'agree');
 
     expect(res.status).toBe(400);
     expect(res.text).toContain('현장 사진을 1장 이상 올려주세요.');
     expect(res.text).toContain('value="일반사진없음테스트"');
     expect(res.text).toMatch(/name="location" value="천장 누수" checked/);
+    expect(res.text).toMatch(/name="privacyConsent" value="agree"[^>]* checked/);
     const count = await prisma.leakReport.count({ where: { name: '일반사진없음테스트' } });
     expect(count).toBe(0);
+  });
+
+  it('POST /report without privacy consent is rejected, lists the consent, and saves nothing', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/report')
+      .field('name', '일반동의없음테스트')
+      .field('phone', '010-1234-5678')
+      .field('address', '서울시 강남구 테스트로 1')
+      .field('location', '천장 누수')
+      .field('occurredAt', '오늘 아침')
+      .field('damageScope', '거실 천장 일부 젖음')
+      .field('urgency', '보통')
+      .attach('photos', Buffer.from('fake-image'), 'photo1.jpg');
+
+    expect(res.status).toBe(400);
+    expect(res.text).toMatch(/입력값을 다시 확인해주세요[^<]*개인정보 수집·이용 동의/);
+    expect(res.text).toContain('value="일반동의없음테스트"');
+    expect(res.text).not.toMatch(/name="privacyConsent" value="agree"[^>]* checked/);
+    const count = await prisma.leakReport.count({ where: { name: '일반동의없음테스트' } });
+    expect(count).toBe(0);
+  });
+
+  it('GET /report shows the required privacy consent with a link to the policy', async () => {
+    const res = await request(app.getHttpServer()).get('/report');
+
+    expect(res.text).toMatch(/<input type="checkbox" name="privacyConsent" value="agree"[^>]* required/);
+    expect(res.text).not.toMatch(/name="privacyConsent" value="agree"[^>]* checked/);
+    expect(res.text).toContain('[필수] 개인정보 수집 · 이용에 동의합니다');
+    expect(res.text).toMatch(/href="\/privacy" target="_blank" rel="noopener"/);
   });
 
   it('GET /report marks the photo upload as required', async () => {
@@ -111,7 +144,8 @@ describe('Report (e2e)', () => {
       .field('location', '천장 누수')
       .field('occurredAt', '오늘 아침')
       .field('damageScope', '거실 천장 일부 젖음')
-      .field('urgency', '보통');
+      .field('urgency', '보통')
+      .field('privacyConsent', 'agree');
 
     for (let i = 0; i < 21; i++) {
       req = req.attach('photos', Buffer.from('fake-image'), `photo${i}.jpg`);
@@ -135,6 +169,7 @@ describe('Report (e2e)', () => {
       .field('occurredAt', '오늘 아침')
       .field('damageScope', '거실 천장 일부 젖음')
       .field('urgency', '보통')
+      .field('privacyConsent', 'agree')
       .attach('photos', Buffer.from('%PDF-1.4'), {
         filename: 'document.pdf',
         contentType: 'application/pdf',
@@ -158,7 +193,8 @@ describe('Report (e2e)', () => {
       .field('location', '욕실 누수')
       .field('occurredAt', '오늘 아침')
       .field('damageScope', '거실 천장 일부 젖음')
-      .field('urgency', '보통');
+      .field('urgency', '보통')
+      .field('privacyConsent', 'agree');
 
     expect(res.status).toBe(400);
     expect(res.text).toContain('이름');
@@ -190,6 +226,7 @@ describe('Report (e2e)', () => {
       .field('occurredAt', '오늘 아침')
       .field('damageScope', '거실 천장 일부 젖음')
       .field('urgency', '보통')
+      .field('privacyConsent', 'agree')
       .attach('photos', Buffer.from('fake-image'), 'photo1.jpg');
 
     expect(res.status).toBe(500);
@@ -220,7 +257,8 @@ describe('Report (e2e)', () => {
       .field('location', '천장 누수')
       .field('occurredAt', '오늘 아침')
       .field('damageScope', '거실 천장 일부 젖음')
-      .field('urgency', '긴급');
+      .field('urgency', '긴급')
+      .field('privacyConsent', 'agree');
 
     expect(res.status).toBe(400);
     expect(res.text).toMatch(/입력값을 다시 확인해주세요[^<]*긴급도/);

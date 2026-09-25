@@ -60,12 +60,30 @@ describe('Emergency (e2e)', () => {
       .post('/emergency')
       .field('name', '사진없음테스트')
       .field('phone', '010-1234-5678')
-      .field('address', '서울시 강남구 테스트로 1');
+      .field('address', '서울시 강남구 테스트로 1')
+      .field('privacyConsent', 'agree');
 
     expect(res.status).toBe(400);
     expect(res.text).toContain('현장 사진을 1장 이상 올려주세요.');
     expect(res.text).toContain('value="사진없음테스트"');
+    expect(res.text).toMatch(/name="privacyConsent" value="agree"[^>]* checked/);
     const count = await prisma.leakReport.count({ where: { name: '사진없음테스트' } });
+    expect(count).toBe(0);
+  });
+
+  it('POST /emergency without privacy consent is rejected, lists the consent, and saves nothing', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/emergency')
+      .field('name', '긴급동의없음테스트')
+      .field('phone', '010-1234-5678')
+      .field('address', '서울시 강남구 테스트로 1')
+      .attach('photos', Buffer.from('fake-image'), 'photo1.jpg');
+
+    expect(res.status).toBe(400);
+    expect(res.text).toMatch(/입력값을 다시 확인해주세요[^<]*개인정보 수집·이용 동의/);
+    expect(res.text).toContain('value="긴급동의없음테스트"');
+    expect(res.text).toContain('href="/privacy"');
+    const count = await prisma.leakReport.count({ where: { name: '긴급동의없음테스트' } });
     expect(count).toBe(0);
   });
 
@@ -75,6 +93,7 @@ describe('Emergency (e2e)', () => {
       .field('name', '홍길동')
       .field('phone', 'abc')
       .field('address', '서울시 강남구 테스트로 1')
+      .field('privacyConsent', 'agree')
       .attach('photos', Buffer.from('fake-image'), 'photo1.jpg');
 
     expect(res.status).toBe(400);
@@ -88,6 +107,7 @@ describe('Emergency (e2e)', () => {
       .field('name', '홍길동')
       .field('phone', '010-1234-5678')
       .field('address', '서울시 강남구 테스트로 1')
+      .field('privacyConsent', 'agree')
       .attach('photos', Buffer.from('%PDF-1.4'), {
         filename: 'document.pdf',
         contentType: 'application/pdf',
@@ -106,6 +126,7 @@ describe('Emergency (e2e)', () => {
       .field('name', '긴급접수테스트')
       .field('phone', '010-9876-5432')
       .field('address', '서울시 마포구 긴급로 2')
+      .field('privacyConsent', 'agree')
       .field('location', '')
       .field('description', '천장에서 물이 떨어지고 있어요')
       // 긴급 폼에 없는 필드는 검증 대상이 아니므로 저장되면 안 된다
@@ -127,6 +148,7 @@ describe('Emergency (e2e)', () => {
       occurredAt: null,
       damageScope: null,
     });
+    expect(saved?.privacyConsentedAt).toBeInstanceOf(Date);
     expect(notificationMock.notifyReportCreated).toHaveBeenCalledWith(
       expect.objectContaining({ id, isEmergency: true }),
     );
