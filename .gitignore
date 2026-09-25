@@ -5,3 +5,4 @@ coverage/
 *.db
 *.db-journal
 design/
+.deploy.env

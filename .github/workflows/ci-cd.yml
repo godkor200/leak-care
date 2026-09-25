@@ -1,0 +1,66 @@
+name: CI/CD
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test & build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # 테스트용 값. S3/Slack은 테스트에서 모킹되고, /health e2e만 실제 StorageService를 생성한다.
+      DATABASE_URL: file:./ci.db
+      AWS_REGION: ap-northeast-2
+      S3_BUCKET: ci-bucket
+      AWS_ACCESS_KEY_ID: ci
+      AWS_SECRET_ACCESS_KEY: ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+      - run: npx tsc --noEmit -p tsconfig.json
+      - run: npm test
+      - run: npx prisma migrate deploy
+      - run: npm run test:e2e
+      - run: npm run build
+
+  deploy:
+    name: Deploy to Lightsail
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    # 배포가 겹치지 않게 하나씩 실행하고, 진행 중인 배포는 취소하지 않는다
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Deploy
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ubuntu
+        run: DEPLOY_KEY="$HOME/.ssh/deploy_key" bash scripts/deploy.sh
