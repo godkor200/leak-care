@@ -854,6 +854,39 @@ button:focus-visible {
   gap: 2px 14px;
 }
 
+.footer-biz {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  margin-top: 6px;
+}
+
+.footer-biz a {
+  color: inherit;
+}
+
+.footer-legal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0 16px;
+}
+
+.footer-privacy {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 800;
+  color: #fff;
+  text-decoration: none;
+}
+
+.footer-privacy:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 /* ---------- 접수 페이지 공용 ---------- */
 
 .page {
@@ -1330,7 +1363,9 @@ input[type='tel']:focus {
   padding: 12px 14px;
   background: var(--bg);
   border: 2px solid var(--rule);
+  font-size: 15px;
   font-weight: 800;
+  line-height: 1.45;
   cursor: pointer;
 }
 
@@ -1537,6 +1572,127 @@ input[type='tel']:focus {
   margin-top: 24px;
 }
 
+/* ---------- 개인정보 처리방침 ---------- */
+
+.policy {
+  display: grid;
+  gap: 16px;
+}
+
+.policy-toc {
+  padding: 20px 18px;
+  background: var(--surface);
+  border-top: 2px solid var(--ink);
+}
+
+.policy-toc-title {
+  margin-bottom: 8px;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.policy-toc ol {
+  counter-reset: toc;
+}
+
+.policy-toc li {
+  counter-increment: toc;
+}
+
+.policy-toc a {
+  display: flex;
+  gap: 8px;
+  min-height: 40px;
+  align-items: center;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.policy-toc a::before {
+  content: counter(toc) '.';
+  flex: none;
+  min-width: 24px;
+  color: var(--red-active);
+  font-weight: 900;
+}
+
+.policy-toc a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.policy-section {
+  padding: 22px 18px 24px;
+  background: var(--surface);
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.policy-section h2 {
+  margin-bottom: 12px;
+  font-size: 19px;
+  font-weight: 900;
+  line-height: 1.4;
+  letter-spacing: -0.03em;
+}
+
+.policy-section p + p,
+.policy-section p + ul,
+.policy-section ul + p,
+.policy-section p + .policy-dl,
+.policy-section .policy-dl + p {
+  margin-top: 12px;
+}
+
+.policy-section ul {
+  display: grid;
+  gap: 6px;
+}
+
+.policy-section li {
+  position: relative;
+  padding-left: 14px;
+}
+
+.policy-section li::before {
+  content: '';
+  position: absolute;
+  top: 0.75em;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  background: var(--red);
+}
+
+.policy-section a {
+  color: var(--red-active);
+  font-weight: 700;
+}
+
+.policy-dl {
+  border-top: 1px solid var(--rule-soft);
+}
+
+.policy-row {
+  display: grid;
+  gap: 2px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.policy-row dt {
+  font-weight: 800;
+}
+
+.policy-row dd {
+  color: var(--ink-soft);
+}
+
+.policy-date {
+  font-weight: 800;
+}
+
 /* ---------- 태블릿 이상 ---------- */
 
 @media (min-width: 768px) {
@@ -1678,9 +1834,6 @@ input[type='tel']:focus {
     text-align: right;
   }
 
-  .footer-bottom {
-    grid-template-columns: 1fr auto;
-  }
 
   .page-head {
     padding: 48px 0 24px;
@@ -1704,6 +1857,22 @@ input[type='tel']:focus {
 
   .form-card {
     padding: 28px 28px 32px;
+  }
+
+  .policy-toc,
+  .policy-section {
+    padding: 28px 28px 32px;
+  }
+
+  .policy-toc ol {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 24px;
+  }
+
+  .policy-row {
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: 16px;
   }
 
   .emergency-strip {

@@ -7,4 +7,10 @@ export class HomeController {
   show() {
     return {};
   }
+
+  @Get('privacy')
+  @Render('privacy')
+  showPrivacy() {
+    return {};
+  }
 }

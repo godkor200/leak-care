@@ -26,7 +26,19 @@
         <li>누수공사 및 보수</li>
         <li>보험처리 지원</li>
       </ul>
-      <p>© 누수응급센터 LEAK EMERGENCY CENTER</p>
+      {{#if business.hasFooterDetails}}
+        <p class="footer-biz">
+          {{#if business.name}}<span>상호 {{business.name}}</span>{{/if}}
+          {{#if business.owner}}<span>대표 {{business.owner}}</span>{{/if}}
+          {{#if business.regNo}}<span>사업자등록번호 {{business.regNo}}</span>{{/if}}
+          {{#if business.address}}<span>주소 {{business.address}}</span>{{/if}}
+          {{#if business.email}}<span>이메일 <a href="mailto:{{business.email}}">{{business.email}}</a></span>{{/if}}
+        </p>
+      {{/if}}
+      <div class="footer-legal">
+        <a class="footer-privacy" href="/privacy">개인정보 처리방침</a>
+        <p>© 누수응급센터 LEAK EMERGENCY CENTER</p>
+      </div>
     </div>
   </div>
 </footer>
