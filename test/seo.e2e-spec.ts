@@ -160,6 +160,23 @@ describe('SEO (e2e)', () => {
     },
   );
 
+  it.each([
+    ['/images/og.png', 'image/png'],
+    ['/apple-touch-icon.png', 'image/png'],
+    ['/favicon.ico', 'image/'],
+  ])('serves %s', async (path, type) => {
+    const res = await request(app.getHttpServer()).get(path);
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain(type);
+  });
+
+  it('links the favicon.ico for crawlers that ignore SVG icons', async () => {
+    const res = await request(app.getHttpServer()).get('/');
+
+    expect(headOf(res.text)).toContain('<link rel="icon" href="/favicon.ico" sizes="48x48" />');
+  });
+
   it('omits verification metas when the tokens are not set', async () => {
     const res = await request(app.getHttpServer()).get('/');
 
