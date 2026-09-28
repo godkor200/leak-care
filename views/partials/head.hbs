@@ -2,6 +2,37 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="theme-color" content="#ec3013" />
 <meta name="format-detection" content="telephone=no" />
-<title>{{title}} | 누수응급센터</title>
+{{!-- 페이지마다 title, description, path(canonical 경로)를 넘긴다. noindex면 canonical과 og:url을 넣지 않는다 --}}
+<title>{{title}}</title>
+{{#if description}}
+<meta name="description" content="{{description}}" />
+{{/if}}
+{{#if noindex}}
+<meta name="robots" content="noindex" />
+{{else}}
+<link rel="canonical" href="{{site.url}}{{path}}" />
+{{/if}}
+{{#if site.naverVerification}}
+<meta name="naver-site-verification" content="{{site.naverVerification}}" />
+{{/if}}
+{{#if site.googleVerification}}
+<meta name="google-site-verification" content="{{site.googleVerification}}" />
+{{/if}}
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="누수응급센터" />
+<meta property="og:locale" content="ko_KR" />
+<meta property="og:title" content="{{title}}" />
+{{#if description}}
+<meta property="og:description" content="{{description}}" />
+{{/if}}
+{{#unless noindex}}
+<meta property="og:url" content="{{site.url}}{{path}}" />
+{{/unless}}
+<meta property="og:image" content="{{site.url}}/images/og.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="누수응급센터 - 빠른 대응이 피해를 줄입니다. 24시간 긴급출동 1644-2667" />
+<meta name="twitter:card" content="summary_large_image" />
 <link rel="icon" href="/images/logo.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <link rel="stylesheet" href="/styles.css" />
