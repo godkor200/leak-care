@@ -16,6 +16,12 @@ function line(label: string, value?: string | null): string | null {
   return value ? `${label}: ${escapeSlack(value)}` : null;
 }
 
+// 검색어는 encodeURIComponent로 인코딩해 |, <, > 등이 Slack의 <URL|텍스트> 문법을 깨지 못한다
+function mapLine(searchAddress: string): string {
+  const url = `https://map.kakao.com/link/search/${encodeURIComponent(searchAddress)}`;
+  return `지도: <${url}|카카오맵에서 보기>`;
+}
+
 // 긴급은 알림을 보자마자 전화할 수 있게 연락처를 맨 앞에 둔다
 function buildMessage(report: ReportNotification): string {
   const header = report.isEmergency
@@ -25,6 +31,7 @@ function buildMessage(report: ReportNotification): string {
     ? [
         line('연락처', report.phone),
         line('주소', report.address),
+        mapLine(report.mapAddress),
         line('이름', report.name),
         line('발생 장소', report.location),
         line('상황', report.description),
@@ -33,6 +40,7 @@ function buildMessage(report: ReportNotification): string {
         line('긴급도', report.urgency),
         line('발생 장소', report.location),
         line('주소', report.address),
+        mapLine(report.mapAddress),
         line('이름', report.name),
         line('연락처', report.phone),
       ];
