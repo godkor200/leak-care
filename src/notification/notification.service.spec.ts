@@ -15,6 +15,7 @@ describe('NotificationService', () => {
     name: '홍길동',
     phone: '010-1234-5678',
     address: '서울시 강남구 테스트로 1',
+    mapAddress: '서울시 강남구 테스트로 1',
     urgency: '보통',
     isEmergency: false,
     location: '천장 누수',

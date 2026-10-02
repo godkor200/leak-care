@@ -11,7 +11,15 @@ model LeakReport {
   id                 Int              @id @default(autoincrement())
   name               String
   phone              String
+  // 화면 표시용 전체 주소 (기본 주소 + 상세주소)
   address            String
+  addressDetail      String?
+  // 주소 검색(카카오 우편번호)으로 고른 경우에만 채워진다
+  postalCode         String?
+  roadAddress        String?
+  jibunAddress       String?
+  sido               String?
+  sigungu            String?
   location           String?
   occurredAt         String?
   damageScope        String?
