@@ -50,7 +50,7 @@ echo "▶ 상태 확인"
 for _ in $(seq 1 20); do
   # nginx가 http를 https로 301 하므로 리다이렉트를 따라가 실제 https 엔드포인트까지 확인한다
   if curl -fsL -o /dev/null "http://$HOST/health"; then
-    echo "✅ 배포 완료: http://$HOST/"
+    echo "✅ 배포 완료"
     exit 0
   fi
   sleep 1
