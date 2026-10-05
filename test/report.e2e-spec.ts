@@ -11,6 +11,7 @@ describe('Report (e2e)', () => {
   let app: NestExpressApplication;
   let prisma: PrismaService;
   let createdId: number;
+  const createdIds: number[] = [];
   let storageServiceMock: any;
 
   beforeAll(async () => {
@@ -40,6 +41,10 @@ describe('Report (e2e)', () => {
     if (createdId) {
       await prisma.leakReportFile.deleteMany({ where: { leakReportId: createdId } });
       await prisma.leakReport.delete({ where: { id: createdId } });
+    }
+    for (const id of createdIds) {
+      await prisma.leakReportFile.deleteMany({ where: { leakReportId: id } });
+      await prisma.leakReport.delete({ where: { id } });
     }
     await app.close();
   });
@@ -263,6 +268,108 @@ describe('Report (e2e)', () => {
     expect(res.status).toBe(400);
     expect(res.text).toMatch(/입력값을 다시 확인해주세요[^<]*긴급도/);
     const count = await prisma.leakReport.count({ where: { name: '긴급거부테스트' } });
+    expect(count).toBe(0);
+  });
+
+  function postGeneral(fields: Record<string, string>) {
+    let req = request(app.getHttpServer()).post('/report');
+    const base = {
+      name: '주소검색테스트',
+      phone: '010-1234-5678',
+      location: '천장 누수',
+      occurredAt: '오늘 아침',
+      damageScope: '거실 천장 일부 젖음',
+      urgency: '보통',
+      privacyConsent: 'agree',
+    };
+    for (const [key, value] of Object.entries({ ...base, ...fields })) {
+      req = req.field(key, value);
+    }
+    return req;
+  }
+
+  const pickerFields = {
+    address: '대구 달서구 월배로 100 (상인동, 테스트아파트)',
+    addressDetail: '406동 2004호',
+    postalCode: '42700',
+    roadAddress: '대구 달서구 월배로 100',
+    jibunAddress: '대구 달서구 상인동 1-1',
+    sido: '대구',
+    sigungu: '달서구',
+  };
+
+  it('GET /report renders the address search button and the detail address input', async () => {
+    const res = await request(app.getHttpServer()).get('/report');
+
+    expect(res.text).toMatch(/<button type="button"[^>]*data-address-search[^>]*>[^<]*주소 검색/);
+    expect(res.text).toMatch(/<input[^>]*name="addressDetail"[^>]*maxlength="100"/);
+    for (const name of ['postalCode', 'roadAddress', 'jibunAddress', 'sido', 'sigungu']) {
+      expect(res.text).toMatch(new RegExp(`<input type="hidden" name="${name}"`));
+    }
+    expect(res.text).not.toMatch(/name="address"[^>]*readonly/);
+  });
+
+  it('POST /report saves the picked address fields and the full display address', async () => {
+    const res = await postGeneral(pickerFields).attach(
+      'photos',
+      Buffer.from('fake-image'),
+      'photo1.jpg',
+    );
+
+    expect(res.status).toBe(302);
+    const id = Number(res.headers.location.split('/')[2]);
+    createdIds.push(id);
+    const saved = await prisma.leakReport.findUnique({ where: { id } });
+    expect(saved).toMatchObject({
+      address: '대구 달서구 월배로 100 (상인동, 테스트아파트) 406동 2004호',
+      addressDetail: '406동 2004호',
+      postalCode: '42700',
+      roadAddress: '대구 달서구 월배로 100',
+      jibunAddress: '대구 달서구 상인동 1-1',
+      sido: '대구',
+      sigungu: '달서구',
+    });
+
+    const completeRes = await request(app.getHttpServer()).get(res.headers.location);
+    // 상세주소는 푸터의 사업장 주소와 겹칠 수 있어 고객만 입력한 값으로 확인한다
+    expect(completeRes.text).not.toContain('월배로');
+    expect(completeRes.text).not.toContain('상인동 1-1');
+    expect(completeRes.text).not.toContain('42700');
+  });
+
+  it('POST /report with a manually typed address saves it and leaves the structured columns empty', async () => {
+    const res = await postGeneral({ address: '대구 달서구 직접입력로 5' }).attach(
+      'photos',
+      Buffer.from('fake-image'),
+      'photo1.jpg',
+    );
+
+    expect(res.status).toBe(302);
+    const id = Number(res.headers.location.split('/')[2]);
+    createdIds.push(id);
+    const saved = await prisma.leakReport.findUnique({ where: { id } });
+    expect(saved).toMatchObject({
+      address: '대구 달서구 직접입력로 5',
+      addressDetail: null,
+      postalCode: null,
+      roadAddress: null,
+      jibunAddress: null,
+      sido: null,
+      sigungu: null,
+    });
+  });
+
+  it('POST /report with an invalid postal code is rejected and keeps the detail address', async () => {
+    const res = await postGeneral({
+      ...pickerFields,
+      name: '우편번호거부테스트',
+      postalCode: '1234',
+    }).attach('photos', Buffer.from('fake-image'), 'photo1.jpg');
+
+    expect(res.status).toBe(400);
+    expect(res.text).toMatch(/입력값을 다시 확인해주세요[^<]*우편번호/);
+    expect(res.text).toMatch(/name="addressDetail"[^>]*value="406동 2004호"/);
+    const count = await prisma.leakReport.count({ where: { name: '우편번호거부테스트' } });
     expect(count).toBe(0);
   });
 });

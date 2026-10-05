@@ -1,0 +1,18 @@
+<div class="field address-field" data-address-field>
+  <label for="address">주소</label>
+  <div class="address-search-row">
+    <input id="address" type="text" name="address" value="{{values.address}}" autocomplete="address-line1" maxlength="200" placeholder="주소 검색 또는 직접 입력" required />
+    <button type="button" class="btn btn-dark address-search-button" data-address-search>주소 검색</button>
+  </div>
+  <p class="address-note" role="alert" hidden></p>
+  <div class="address-detail">
+    <label class="visually-hidden" for="addressDetail">상세주소</label>
+    <input id="addressDetail" type="text" name="addressDetail" value="{{values.addressDetail}}" autocomplete="address-line2" maxlength="100" placeholder="동 · 호수 등 상세주소" />
+  </div>
+  {{!-- 주소 검색으로 고르면 채워지고, 주소를 직접 고치면 비워진다 --}}
+  <input type="hidden" name="postalCode" value="{{values.postalCode}}" data-address-part />
+  <input type="hidden" name="roadAddress" value="{{values.roadAddress}}" data-address-part />
+  <input type="hidden" name="jibunAddress" value="{{values.jibunAddress}}" data-address-part />
+  <input type="hidden" name="sido" value="{{values.sido}}" data-address-part />
+  <input type="hidden" name="sigungu" value="{{values.sigungu}}" data-address-part />
+</div>

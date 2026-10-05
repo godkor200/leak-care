@@ -37,10 +37,7 @@
             <label for="phone">연락처</label>
             <input id="phone" type="tel" name="phone" value="{{values.phone}}" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="010-0000-0000" required />
           </div>
-          <div class="field">
-            <label for="address">주소</label>
-            <input id="address" type="text" name="address" value="{{values.address}}" autocomplete="street-address" maxlength="200" placeholder="동 · 호수까지 적어주세요" required />
-          </div>
+          {{> address-fields}}
         </section>
 
         <section class="form-card">
