@@ -251,4 +251,55 @@ describe('ReportService', () => {
       }),
     );
   });
+
+  it('saves the address search fields and notifies with the road address for the map', async () => {
+    const { service, prisma, notification } = createService();
+    const picked = {
+      ...dto,
+      address: '대구 달서구 월배로 100 (상인동) 406동 2004호',
+      addressDetail: '406동 2004호',
+      postalCode: '42700',
+      roadAddress: '대구 달서구 월배로 100',
+      jibunAddress: '대구 달서구 상인동 1-1',
+      sido: '대구',
+      sigungu: '달서구',
+    };
+    prisma.leakReport.create.mockResolvedValue({ id: 3, ...picked, files: [] });
+
+    await service.create(picked, { photos: [photo] });
+
+    expect(prisma.leakReport.create.mock.calls[0][0].data).toMatchObject({
+      address: '대구 달서구 월배로 100 (상인동) 406동 2004호',
+      addressDetail: '406동 2004호',
+      postalCode: '42700',
+      roadAddress: '대구 달서구 월배로 100',
+      jibunAddress: '대구 달서구 상인동 1-1',
+      sido: '대구',
+      sigungu: '달서구',
+    });
+    expect(notification.notifyReportCreated).toHaveBeenCalledWith(
+      expect.objectContaining({ mapAddress: '대구 달서구 월배로 100' }),
+    );
+  });
+
+  it('uses the typed address without the detail part for the map when there is no road address', async () => {
+    const { service, prisma, notification } = createService();
+    const typed = {
+      ...dto,
+      address: '서울시 강남구 테스트로 1 101호',
+      addressDetail: '101호',
+    };
+    prisma.leakReport.create.mockResolvedValue({
+      id: 4,
+      ...typed,
+      roadAddress: null,
+      files: [],
+    });
+
+    await service.create(typed, { photos: [photo] });
+
+    expect(notification.notifyReportCreated).toHaveBeenCalledWith(
+      expect.objectContaining({ mapAddress: '서울시 강남구 테스트로 1' }),
+    );
+  });
 });

@@ -15,6 +15,7 @@ describe('NotificationService', () => {
     name: '홍길동',
     phone: '010-1234-5678',
     address: '서울시 강남구 테스트로 1',
+    mapAddress: '서울시 강남구 테스트로 1',
     urgency: '보통',
     isEmergency: false,
     location: '천장 누수',
@@ -173,6 +174,53 @@ describe('NotificationService', () => {
     expect(text).toContain('주소: A &amp; B &lt;https://evil.example|클릭&gt;');
     expect(text).not.toContain('<!channel>');
     expect(text).toContain('동영상 1개 첨부됨');
+  });
+
+  it('links the road address on Kakao Map in a general report', async () => {
+    const { service, slack } = createService();
+
+    await service.notifyReportCreated({
+      ...generalReport,
+      address: '대구 달서구 월배로 100 (상인동) 406동 2004호',
+      mapAddress: '대구 달서구 월배로 100',
+    });
+
+    const text = slack.postMessage.mock.calls[0][2];
+    const url = `https://map.kakao.com/link/search/${encodeURIComponent('대구 달서구 월배로 100')}`;
+    expect(text).toContain(`지도: <${url}|카카오맵에서 보기>`);
+    expect(text).toContain('주소: 대구 달서구 월배로 100 (상인동) 406동 2004호');
+  });
+
+  it('puts the Kakao Map link right after the address in an emergency report', async () => {
+    const { service, slack } = createService();
+
+    await service.notifyReportCreated({ ...emergencyReport, mapAddress: '서울시 강남구 테스트로 1' });
+
+    const lines = slack.postMessage.mock.calls[0][2].split('\n');
+    const addressIndex = lines.indexOf('주소: 서울시 강남구 테스트로 1');
+    expect(addressIndex).toBeGreaterThan(0);
+    expect(lines[addressIndex + 1]).toBe(
+      `지도: <https://map.kakao.com/link/search/${encodeURIComponent('서울시 강남구 테스트로 1')}|카카오맵에서 보기>`,
+    );
+  });
+
+  it('encodes the map search text so it cannot break the Slack link', async () => {
+    const { service, slack } = createService();
+
+    await service.notifyReportCreated({
+      ...generalReport,
+      address: 'A & B <https://evil.example|클릭>',
+      mapAddress: 'A & B <https://evil.example|클릭>',
+    });
+
+    const text = slack.postMessage.mock.calls[0][2];
+    const mapLine = text.split('\n').find((l: string) => l.startsWith('지도: '));
+    expect(mapLine).toBe(
+      `지도: <https://map.kakao.com/link/search/${encodeURIComponent('A & B <https://evil.example|클릭>')}|카카오맵에서 보기>`,
+    );
+    // URL 부분에 Slack 링크 문법을 깨는 문자가 남지 않는다
+    expect(mapLine.slice('지도: <'.length, mapLine.lastIndexOf('|'))).not.toMatch(/[\s|<>&]/);
+    expect(text).toContain('주소: A &amp; B &lt;https://evil.example|클릭&gt;');
   });
 
   it('skips the photo upload and does not throw when the message fails', async () => {

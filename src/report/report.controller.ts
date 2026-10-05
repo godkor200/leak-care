@@ -28,6 +28,7 @@ import {
   pickFormValues,
   REATTACH_FILES_NOTE,
 } from './report-form.view-model';
+import { pickAddress } from './address';
 import { UploadErrorFilter, UploadFormViewModel } from './upload-error.filter';
 import { ReportUploadInterceptor, UploadedReportFiles } from './upload-options';
 
@@ -47,14 +48,14 @@ const GENERAL_FORM: ReportForm<CreateReportDto> = {
   dtoClass: CreateReportDto,
   // DTO에 선언되지 않은 필드도 plainToInstance가 남기므로 검증한 필드만 골라 저장한다
   // 검증을 통과한 뒤에만 호출되므로 이 시점은 동의(privacyConsent = agree)가 확인된 시각이다
-  toReport: ({ name, phone, address, location, occurredAt, damageScope, urgency }) => ({
-    name,
-    phone,
-    address,
-    location,
-    occurredAt,
-    damageScope,
-    urgency,
+  toReport: (dto) => ({
+    name: dto.name,
+    phone: dto.phone,
+    ...pickAddress(dto),
+    location: dto.location,
+    occurredAt: dto.occurredAt,
+    damageScope: dto.damageScope,
+    urgency: dto.urgency,
     privacyConsentedAt: new Date(),
   }),
   requirePhoto: true,
@@ -64,12 +65,12 @@ const EMERGENCY_FORM: ReportForm<CreateEmergencyReportDto> = {
   view: 'report/emergency',
   viewModel: emergencyFormViewModel,
   dtoClass: CreateEmergencyReportDto,
-  toReport: ({ name, phone, address, location, description }) => ({
-    name,
-    phone,
-    address,
-    location,
-    description,
+  toReport: (dto) => ({
+    name: dto.name,
+    phone: dto.phone,
+    ...pickAddress(dto),
+    location: dto.location,
+    description: dto.description,
     urgency: UrgencyLevel.HIGH,
     privacyConsentedAt: new Date(),
   }),

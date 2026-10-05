@@ -5,11 +5,13 @@ import { StorageService } from '../storage/storage.service';
 import { NotificationService } from '../notification/notification.service';
 import { LeakLocation, UrgencyLevel } from './dto/leak-report.enums';
 import { ResolvedFileType, resolveFileType } from './file-types';
+import { mapSearchAddress } from './address';
 
 // 일반 접수와 긴급 출동이 공통으로 저장하는 입력. 긴급 출동은 occurredAt/damageScope가 없다.
 export interface NewLeakReport {
   name: string;
   phone: string;
+  // 화면 표시용 전체 주소 (기본 주소 + 상세주소)
   address: string;
   urgency: UrgencyLevel;
   // 개인정보 수집·이용 동의 시각 (동의 증빙용)
@@ -18,6 +20,13 @@ export interface NewLeakReport {
   occurredAt?: string;
   damageScope?: string;
   description?: string;
+  addressDetail?: string;
+  // 주소 검색으로 고른 경우에만 있다
+  postalCode?: string;
+  roadAddress?: string;
+  jibunAddress?: string;
+  sido?: string;
+  sigungu?: string;
 }
 
 export interface ReportFiles {
@@ -78,6 +87,12 @@ export class ReportService {
         name: input.name,
         phone: input.phone,
         address: input.address,
+        addressDetail: input.addressDetail,
+        postalCode: input.postalCode,
+        roadAddress: input.roadAddress,
+        jibunAddress: input.jibunAddress,
+        sido: input.sido,
+        sigungu: input.sigungu,
         location: input.location,
         occurredAt: input.occurredAt,
         damageScope: input.damageScope,
@@ -97,6 +112,7 @@ export class ReportService {
         name: report.name,
         phone: report.phone,
         address: report.address,
+        mapAddress: mapSearchAddress(report),
         urgency: report.urgency,
         isEmergency: report.urgency === UrgencyLevel.HIGH,
         location: report.location,

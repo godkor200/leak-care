@@ -1079,6 +1079,112 @@ input[type='tel']:focus {
   font-weight: 700;
 }
 
+/* 주소: 기본 주소 + [주소 검색] 버튼, 그 아래 상세주소 */
+.address-search-row {
+  display: flex;
+  gap: 8px;
+}
+
+.address-search-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.address-search-button {
+  flex: none;
+  min-height: 52px;
+  padding: 0 16px;
+  font-size: 16px;
+  white-space: nowrap;
+}
+
+.address-search-button:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.address-search-button:focus-visible,
+.address-layer-close:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.address-note {
+  margin-top: 8px;
+  padding: 10px 12px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--red-active);
+  background: var(--red-tint);
+  border-left: 4px solid var(--red-active);
+}
+
+.address-detail {
+  margin-top: 8px;
+}
+
+/* 주소 검색 레이어: 휴대폰은 전체 화면, 넓은 화면은 가운데 패널 */
+.is-layer-open,
+.is-layer-open body {
+  overflow: hidden;
+}
+
+.address-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  background: color-mix(in srgb, var(--ink) 60%, transparent);
+}
+
+.address-layer[hidden] {
+  display: none;
+}
+
+.address-layer-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: var(--surface);
+}
+
+.address-layer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: none;
+  min-height: 56px;
+  padding: 0 8px 0 18px;
+  border-bottom: 2px solid var(--ink);
+}
+
+.address-layer-head strong {
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+.address-layer-close {
+  min-width: 56px;
+  min-height: 44px;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.address-layer-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* 라디오 칩 / 세그먼트: 실제 input은 칩 위에 투명하게 겹쳐 두어 기본 검증 말풍선 위치를 유지한다 */
 .chips {
   display: flex;
@@ -1698,6 +1804,18 @@ input[type='tel']:focus {
 @media (min-width: 768px) {
   :root {
     --header-h: 76px;
+  }
+
+  .address-layer {
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .address-layer-panel {
+    width: min(520px, 100%);
+    height: min(640px, 100%);
+    box-shadow: 0 20px 60px rgb(0 0 0 / 0.3);
   }
 
   .container {
