@@ -1,4 +1,5 @@
 import { BusinessInfo } from '../business-info';
+import { Faq, GuideArticle, guidePath } from '../guide/guide-content';
 import { SiteInfo } from '../site-info';
 
 // 검색 결과에 노출할 페이지. 접수 완료 페이지는 개인 접수 건이라 제외한다
@@ -39,8 +40,8 @@ export function buildRobotsTxt(siteUrl: string): string {
   ].join('\n');
 }
 
-export function buildSitemapXml(siteUrl: string, lastmod?: string): string {
-  const urls = INDEXABLE_PATHS.map((path) => {
+export function buildSitemapXml(siteUrl: string, lastmod?: string, extraPaths: string[] = []): string {
+  const urls = [...INDEXABLE_PATHS, ...extraPaths].map((path) => {
     const lines = [`    <loc>${escapeXml(siteUrl + path)}</loc>`];
     if (lastmod) {
       lines.push(`    <lastmod>${escapeXml(lastmod)}</lastmod>`);
@@ -94,4 +95,36 @@ export function buildLocalBusinessJsonLd(site: SiteInfo, business: BusinessInfo)
 // <script type="application/ld+json"> 안에 그대로 넣을 수 있도록 <를 이스케이프한다
 export function serializeJsonLd(data: unknown): string {
   return JSON.stringify(data).replace(/</g, '\\u003c');
+}
+
+export function buildFaqJsonLd(faqs: Faq[]) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((faq) => ({
+      '@type': 'Question',
+      name: faq.q,
+      acceptedAnswer: { '@type': 'Answer', text: faq.a },
+    })),
+  };
+}
+
+export function buildArticleJsonLd(site: SiteInfo, article: GuideArticle) {
+  const url = site.url + guidePath(article.slug);
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: article.title,
+    description: article.summary,
+    datePublished: article.published,
+    inLanguage: 'ko',
+    mainEntityOfPage: url,
+    image: site.url + OG_IMAGE_PATH,
+    author: { '@type': 'Organization', name: '누수응급센터' },
+    publisher: {
+      '@type': 'Organization',
+      name: '누수응급센터',
+      logo: { '@type': 'ImageObject', url: site.url + LOGO_PATH },
+    },
+  };
 }

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  {{> head title=article.title description=article.summary path=path}}
+  <script type="application/ld+json">{{{structuredData}}}</script>
+  <script type="application/ld+json">{{{faqData}}}</script>
+</head>
+<body class="has-action-bar">
+  {{> header}}
+
+  <main class="page">
+    <div class="container narrow">
+      <div class="page-head">
+        <p class="section-eyebrow"><a href="/guide">누수 가이드</a></p>
+        <h1 class="page-title">{{article.title}}</h1>
+        <p class="page-lead">{{article.summary}}</p>
+      </div>
+
+      <article class="policy">
+        {{#each article.sections}}
+          <section class="policy-section">
+            <h2>{{heading}}</h2>
+            {{#each paragraphs}}<p>{{this}}</p>{{/each}}
+            {{#if items}}
+              <ul>
+                {{#each items}}<li>{{this}}</li>{{/each}}
+              </ul>
+            {{/if}}
+          </section>
+        {{/each}}
+
+        <section class="policy-section">
+          <h2>자주 묻는 질문</h2>
+          <div class="faq">
+            {{#each article.faq}}
+              <details>
+                <summary>{{q}}</summary>
+                <p>{{a}}</p>
+              </details>
+            {{/each}}
+          </div>
+        </section>
+      </article>
+
+      {{> guide-cta}}
+
+      <section class="guide-related" aria-labelledby="related-title">
+        <h2 class="guide-related-title" id="related-title">다른 가이드</h2>
+        <ul class="guide-list">
+          {{#each related}}
+            <li><a class="guide-link" href="{{path}}"><strong>{{title}}</strong></a></li>
+          {{/each}}
+        </ul>
+      </section>
+    </div>
+  </main>
+
+  {{> footer}}
+
+  <nav class="action-bar" aria-label="빠른 연락">
+    <a class="action-call" href="tel:16442667"><span aria-hidden="true">📞</span> 전화하기</a>
+    <a class="action-urgent" href="/emergency"><span aria-hidden="true">🚨</span> 긴급 출동</a>
+  </nav>
+</body>
+</html>

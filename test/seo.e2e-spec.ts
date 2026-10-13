@@ -1,6 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import * as request from 'supertest';
+import { GUIDE_ARTICLES } from '../src/guide/guide-content';
 import { AppModule } from '../src/app.module';
 import { NotificationService } from '../src/notification/notification.service';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -63,7 +64,7 @@ describe('SEO (e2e)', () => {
     expect(res.text).toContain(`Sitemap: ${SITE_URL}/sitemap.xml`);
   });
 
-  it('GET /sitemap.xml lists the four indexable pages', async () => {
+  it('GET /sitemap.xml lists the indexable pages and every guide', async () => {
     const res = await request(app.getHttpServer()).get('/sitemap.xml');
 
     expect(res.status).toBe(200);
@@ -76,6 +77,8 @@ describe('SEO (e2e)', () => {
       `${SITE_URL}/emergency`,
       `${SITE_URL}/report`,
       `${SITE_URL}/privacy`,
+      `${SITE_URL}/guide`,
+      ...GUIDE_ARTICLES.map((a) => `${SITE_URL}/guide/${a.slug}`),
     ]);
     expect(res.text).not.toContain('<lastmod>');
   });
@@ -217,6 +220,6 @@ describe('SEO with configured site (e2e)', () => {
 
     const sitemap = await request(app.getHttpServer()).get('/sitemap.xml');
     expect(sitemap.text).toContain('<loc>https://example.com/emergency</loc>');
-    expect(sitemap.text.match(/<lastmod>2026-10-01<\/lastmod>/g)).toHaveLength(4);
+    expect(sitemap.text.match(/<lastmod>2026-10-01<\/lastmod>/g)).toHaveLength(5 + GUIDE_ARTICLES.length);
   });
 });
