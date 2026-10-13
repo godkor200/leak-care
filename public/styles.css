@@ -2075,3 +2075,126 @@ input[type='tel']:focus {
     transition: none !important;
   }
 }
+
+/* ---------- 누수 가이드 ---------- */
+
+.guide-list {
+  display: grid;
+  gap: 12px;
+}
+
+.guide-link {
+  display: grid;
+  gap: 6px;
+  padding: 18px;
+  background: var(--surface);
+  border-top: 2px solid var(--ink);
+  text-decoration: none;
+}
+
+.guide-link strong {
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1.4;
+  letter-spacing: -0.03em;
+}
+
+.guide-link span {
+  color: var(--ink-soft);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.guide-link:hover strong,
+.guide-link:focus-visible strong {
+  color: var(--red-active);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.guide-cta {
+  margin-top: 24px;
+  padding: 24px 18px;
+  background: var(--red-tint);
+  border-top: 2px solid var(--red);
+}
+
+.guide-cta-title {
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+.guide-cta-sub {
+  margin-top: 4px;
+  color: var(--ink-soft);
+}
+
+.guide-cta-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.guide-related {
+  margin-top: 32px;
+}
+
+.guide-related-title {
+  margin-bottom: 12px;
+  font-size: 19px;
+  font-weight: 900;
+}
+
+.faq {
+  display: grid;
+  gap: 8px;
+}
+
+.faq details {
+  border-top: 1px solid var(--ink);
+  padding: 4px 0;
+}
+
+.faq summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.faq details p {
+  padding: 0 0 12px;
+  color: var(--ink-soft);
+}
+
+.faq-section .faq {
+  max-width: 760px;
+}
+
+.home-guides {
+  display: grid;
+  gap: 12px;
+}
+
+@media (min-width: 768px) {
+  .guide-cta-actions {
+    grid-template-columns: repeat(2, max-content);
+  }
+
+  .home-guides {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 20px;
+}
+
+.guide-more {
+  margin-top: 20px;
+  font-weight: 800;
+}

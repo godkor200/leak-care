@@ -14,6 +14,7 @@ describe('AppController (e2e)', () => {
     app = moduleRef.createNestApplication<NestExpressApplication>();
     // 사업자 정보는 configureViews에서 읽으므로 그 전에 미설정 상태를 보장한다
     delete process.env.BUSINESS_REG_NO;
+    delete process.env.PRIVACY_POLICY_EFFECTIVE_DATE;
     configureViews(app);
     await app.init();
   });

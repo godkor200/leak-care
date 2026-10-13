@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  {{> head title="누수 가이드 | 누수응급센터" description="천장 누수 응급조치, 아랫집 누수 보험처리, 수도계량기 확인법, 보일러 압력 문제, 누수탐지 방법까지 누수 상황별 가이드를 모았습니다." path="/guide"}}
+</head>
+<body class="has-action-bar">
+  {{> header}}
+
+  <main class="page">
+    <div class="container narrow">
+      <div class="page-head">
+        <p class="section-eyebrow">LEAK GUIDE</p>
+        <h1 class="page-title">누수 가이드</h1>
+        <p class="page-lead">누수가 의심될 때 먼저 확인할 것과 대처 방법을 정리했습니다.</p>
+      </div>
+
+      <ul class="guide-list">
+        {{#each guides}}
+          <li><a class="guide-link" href="{{path}}"><strong>{{title}}</strong><span>{{summary}}</span></a></li>
+        {{/each}}
+      </ul>
+
+      {{> guide-cta}}
+    </div>
+  </main>
+
+  {{> footer}}
+</body>
+</html>

@@ -1,4 +1,5 @@
 import { Controller, Get, Header } from '@nestjs/common';
+import { GUIDE_ARTICLES, GUIDE_INDEX_PATH, guidePath } from '../guide/guide-content';
 import { loadSiteInfo } from '../site-info';
 import { buildRobotsTxt, buildSitemapXml } from './seo-documents';
 
@@ -15,6 +16,9 @@ export class SeoController {
   @Header('Content-Type', 'application/xml; charset=utf-8')
   sitemap() {
     const site = loadSiteInfo();
-    return buildSitemapXml(site.url, site.sitemapLastmod);
+    return buildSitemapXml(site.url, site.sitemapLastmod, [
+      GUIDE_INDEX_PATH,
+      ...GUIDE_ARTICLES.map((article) => guidePath(article.slug)),
+    ]);
   }
 }
