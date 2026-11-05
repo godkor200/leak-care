@@ -1,11 +1,11 @@
-import { DEFAULT_SITE_URL, loadSiteInfo } from './site-info';
+import { DEFAULT_NAVER_VERIFICATION, DEFAULT_SITE_URL, loadSiteInfo } from './site-info';
 
 describe('loadSiteInfo', () => {
-  it('falls back to the production URL when SITE_URL is not set', () => {
+  it('falls back to the production URL and Naver token when not set', () => {
     expect(DEFAULT_SITE_URL).toBe('https://nusu-emergency.co.kr');
     expect(loadSiteInfo({})).toEqual({
       url: 'https://nusu-emergency.co.kr',
-      naverVerification: undefined,
+      naverVerification: DEFAULT_NAVER_VERIFICATION,
       googleVerification: undefined,
       sitemapLastmod: undefined,
     });
@@ -36,7 +36,7 @@ describe('loadSiteInfo', () => {
     });
 
     expect(site.url).toBe('https://nusu-emergency.co.kr');
-    expect(site.naverVerification).toBeUndefined();
+    expect(site.naverVerification).toBe(DEFAULT_NAVER_VERIFICATION);
     expect(site.googleVerification).toBeUndefined();
     expect(site.sitemapLastmod).toBeUndefined();
   });

@@ -5,6 +5,7 @@ import { GUIDE_ARTICLES } from '../src/guide/guide-content';
 import { AppModule } from '../src/app.module';
 import { NotificationService } from '../src/notification/notification.service';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { DEFAULT_NAVER_VERIFICATION } from '../src/site-info';
 import { StorageService } from '../src/storage/storage.service';
 import { configureViews } from '../src/view-setup';
 
@@ -180,10 +181,12 @@ describe('SEO (e2e)', () => {
     expect(headOf(res.text)).toContain('<link rel="icon" href="/favicon.ico" sizes="48x48" />');
   });
 
-  it('omits verification metas when the tokens are not set', async () => {
+  it('renders the default Naver token and omits Google when the tokens are not set', async () => {
     const res = await request(app.getHttpServer()).get('/');
 
-    expect(res.text).not.toContain('naver-site-verification');
+    expect(metaContent(headOf(res.text), 'name', 'naver-site-verification')).toBe(
+      DEFAULT_NAVER_VERIFICATION,
+    );
     expect(res.text).not.toContain('google-site-verification');
   });
 });

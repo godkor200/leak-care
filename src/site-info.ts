@@ -10,6 +10,9 @@ export interface SiteInfo {
 
 export const DEFAULT_SITE_URL = 'https://nusu-emergency.co.kr';
 
+// 소유 확인 값은 HTML에 그대로 공개되는 값이라 코드에 두고, 환경변수가 있으면 그 값을 쓴다
+export const DEFAULT_NAVER_VERIFICATION = '8c63aa35eae431d10d7da42d80b1df41b6aea425';
+
 // W3C Datetime: YYYY-MM-DD 또는 시각·시간대까지 붙은 형태
 const W3C_DATE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:\d{2}))?$/;
 
@@ -23,7 +26,7 @@ export function loadSiteInfo(env: NodeJS.ProcessEnv = process.env): SiteInfo {
   const lastmod = read(env, 'SITEMAP_LASTMOD');
   return {
     url: url || DEFAULT_SITE_URL,
-    naverVerification: read(env, 'NAVER_SITE_VERIFICATION'),
+    naverVerification: read(env, 'NAVER_SITE_VERIFICATION') ?? DEFAULT_NAVER_VERIFICATION,
     googleVerification: read(env, 'GOOGLE_SITE_VERIFICATION'),
     sitemapLastmod: lastmod && W3C_DATE.test(lastmod) ? lastmod : undefined,
   };
